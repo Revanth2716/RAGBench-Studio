@@ -141,3 +141,28 @@ def test_api_whitespace_document_rejected_400(client):
     )
     assert res.status_code == 400
     assert "whitespace-only" in res.json()["detail"]
+
+def test_api_whitespace_search_query_rejected_400(client):
+    docs = client.get(f"{settings.API_PREFIX}/documents").json()
+    doc_id = docs[0]["id"]
+    res = client.post(
+        f"{settings.API_PREFIX}/search/query",
+        json={
+            "document_id": doc_id,
+            "query": "   ",
+            "top_k": 3,
+        },
+    )
+    assert res.status_code == 400
+    assert "whitespace only" in res.json()["detail"]
+
+def test_api_search_nonexistent_doc_returns_404(client):
+    res = client.post(
+        f"{settings.API_PREFIX}/search/query",
+        json={
+            "document_id": "nonexistent-doc-id-000",
+            "query": "valid query",
+            "top_k": 3,
+        },
+    )
+    assert res.status_code == 404

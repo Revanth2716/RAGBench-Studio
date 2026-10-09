@@ -17,7 +17,7 @@ def compute_hit_rate(retrieved_ids: Sequence[str], relevant_ids: Set[str], k: in
     """
     Returns 1.0 if any relevant item is within top-k retrieved items, else 0.0.
     """
-    if not relevant_ids:
+    if not relevant_ids or (k is not None and k <= 0):
         return 0.0
     candidates = retrieved_ids[:k] if k is not None else retrieved_ids
     return 1.0 if any(item in relevant_ids for item in candidates) else 0.0
@@ -25,32 +25,39 @@ def compute_hit_rate(retrieved_ids: Sequence[str], relevant_ids: Set[str], k: in
 def compute_precision_at_k(retrieved_ids: Sequence[str], relevant_ids: Set[str], k: int) -> float:
     """
     Precision@K = |Retrieved[:K] ∩ Relevant| / K
+    Deduplicates retrieved candidate items so duplicate IDs cannot inflate hit counts.
     """
-    if k <= 0:
+    if k <= 0 or not relevant_ids:
         return 0.0
     top_k = retrieved_ids[:k]
-    hits = sum(1 for item in top_k if item in relevant_ids)
+    hits = len(set(top_k) & relevant_ids)
     return hits / k
 
 def compute_recall_at_k(retrieved_ids: Sequence[str], relevant_ids: Set[str], k: int) -> float:
     """
     Recall@K = |Retrieved[:K] ∩ Relevant| / |Relevant|
+    Deduplicates retrieved candidate items so duplicate IDs cannot inflate hit counts.
     """
-    if not relevant_ids:
+    if not relevant_ids or k <= 0:
         return 0.0
     top_k = retrieved_ids[:k]
-    hits = sum(1 for item in top_k if item in relevant_ids)
+    hits = len(set(top_k) & relevant_ids)
     return hits / len(relevant_ids)
 
 def compute_dcg_at_k(retrieved_ids: Sequence[str], relevant_ids: Set[str], k: int) -> float:
     """
     Discounted Cumulative Gain: sum_{i=1}^K (rel_i / log2(i + 1))
+    Deduplicates previously credited items in top-K.
     """
+    if not relevant_ids or k <= 0:
+        return 0.0
     dcg = 0.0
     top_k = retrieved_ids[:k]
+    seen: set[str] = set()
     for i, item in enumerate(top_k, start=1):
-        rel = 1.0 if item in relevant_ids else 0.0
-        dcg += rel / math.log2(i + 1)
+        if item in relevant_ids and item not in seen:
+            seen.add(item)
+            dcg += 1.0 / math.log2(i + 1)
     return dcg
 
 def compute_idcg_at_k(num_relevant: int, k: int) -> float:

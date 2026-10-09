@@ -72,3 +72,37 @@ def test_is_chunk_relevant():
     text = "HNSW graphs offer fast approximate nearest-neighbor search with high recall."
     assert is_chunk_relevant(text, ["HNSW", "approximate nearest-neighbor"]) is True
     assert is_chunk_relevant(text, ["completely", "unrelated", "cooking", "recipe"]) is False
+    assert is_chunk_relevant(text, []) is False
+
+def test_edge_cases_duplicates_and_non_positive_k():
+    # Duplicate retrieved IDs should not inflate precision or recall
+    retrieved_with_dupes = ["c1", "c1", "c2"]
+    relevant = {"c1"}
+
+    # Precision: 1 unique hit out of k=3 -> 1/3
+    assert abs(compute_precision_at_k(retrieved_with_dupes, relevant, k=3) - (1.0 / 3.0)) < 1e-5
+    # Recall: 1 unique hit out of 1 relevant -> 1.0
+    assert compute_recall_at_k(retrieved_with_dupes, relevant, k=3) == 1.0
+
+    # Non-positive k
+    assert compute_precision_at_k(retrieved_with_dupes, relevant, k=0) == 0.0
+    assert compute_precision_at_k(retrieved_with_dupes, relevant, k=-2) == 0.0
+    assert compute_recall_at_k(retrieved_with_dupes, relevant, k=0) == 0.0
+    assert compute_hit_rate(retrieved_with_dupes, relevant, k=0) == 0.0
+    assert compute_ndcg_at_k(retrieved_with_dupes, relevant, k=0) == 0.0
+
+    # Empty retrieved list
+    assert compute_reciprocal_rank([], relevant) == 0.0
+    assert compute_hit_rate([], relevant, k=3) == 0.0
+    assert compute_precision_at_k([], relevant, k=3) == 0.0
+    assert compute_recall_at_k([], relevant, k=3) == 0.0
+    assert compute_ndcg_at_k([], relevant, k=3) == 0.0
+
+def test_ndcg_multi_relevant_ranking():
+    relevant = {"c1", "c2", "c3"}
+    # Perfect retrieval: c1, c2, c3 in top-3 -> NDCG = 1.0
+    assert compute_ndcg_at_k(["c1", "c2", "c3"], relevant, k=3) == 1.0
+
+    # Incomplete retrieval: only c1 and c3 found, with c2 missing
+    suboptimal = compute_ndcg_at_k(["c1", "other", "c3"], relevant, k=3)
+    assert 0.0 < suboptimal < 1.0

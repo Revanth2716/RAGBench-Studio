@@ -113,3 +113,32 @@ def test_compare_embeddings_validation_errors():
         "strategy_name": "nonexistent_chunker",
     })
     assert res.status_code == 400
+
+
+def test_compare_embeddings_rank_divergence_on_paraphrase():
+    """
+    Validates that semantic embeddings (FastEmbed) and sparse n-gram hashing (Feature Hashing)
+    produce distinct rank orders on conceptual paraphrase queries where exact keywords differ.
+    """
+    docs_res = client.get("/api/v1/documents")
+    assert docs_res.status_code == 200
+    target_doc = next((d for d in docs_res.json() if d["id"] == "doc-golden-rag"), docs_res.json()[0])
+
+    paraphrase_query = "How can we compress vector embeddings to save RAM?"
+    payload = {
+        "document_id": target_doc["id"],
+        "query": paraphrase_query,
+        "strategy_name": "recursive",
+        "top_k": 3,
+    }
+    res = client.post("/api/v1/search/compare", json=payload)
+    assert res.status_code == 200
+    data = res.json()
+
+    fh_ranks = [r["chunk_index"] for r in data["feature_hashing"]["results"]]
+    fe_ranks = [r["chunk_index"] for r in data["fastembed"]["results"]]
+
+    # Verify that rank ordering diverges between sparse hashing and dense semantic embedding
+    assert fh_ranks != fe_ranks, "Dense semantic and sparse hash embeddings should produce differentiated rankings on paraphrases"
+    # FastEmbed should surface chunk 5 (Memory Optimization & Quantization) to rank 1
+    assert fe_ranks[0] == 5, f"Expected FastEmbed to rank chunk 5 at #1, got {fe_ranks}"

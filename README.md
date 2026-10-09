@@ -48,6 +48,34 @@ Most AI developers guess their chunking hyperparameters (`chunk_size=512, overla
 - Context boundary inspec     - Diagnostic presets suite- CSV & JSON Export
 ```
 
+### Repository Structure
+
+```text
+ragbench-studio/
+├── backend/
+│   ├── app/
+│   │   ├── api/                 # FastAPI REST endpoints (health, documents, chunks, search, benchmarks, models)
+│   │   ├── config.py            # Central configuration & settings
+│   │   ├── data/                # Seeded technical whitepaper & 8 golden queries
+│   │   ├── db/                  # SQLite schema, WAL connection factory, and repository
+│   │   ├── engine/              # Chunkers (4 strategies), embedders, retriever, and IR metrics
+│   │   ├── main.py              # Application entrypoint & lifespan lifecycle
+│   │   └── schemas.py           # Pydantic v2 data models
+│   ├── tests/                   # 43 automated unit & integration tests
+│   ├── requirements.txt         # Pinned backend dependencies
+│   └── .env.example             # Optional environment variable template
+├── frontend/
+│   ├── src/
+│   │   ├── components/          # ChunkVisualizer, QueryPlayground, EmbeddingComparator, etc.
+│   │   ├── api.ts               # Type-safe API client
+│   │   ├── App.tsx              # Application shell & navigation tabs
+│   │   └── types.ts             # TypeScript interfaces
+│   ├── package.json             # Frontend dependencies (React 19, Vite, Tailwind v4)
+│   └── vite.config.ts           # Development proxy & server config
+├── LICENSE                      # MIT License
+└── README.md
+```
+
 ---
 
 ## 3. The 4 Chunking Strategies
@@ -80,6 +108,12 @@ $$\text{DCG}@K = \sum_{i=1}^K \frac{\text{rel}_i}{\log_2(i + 1)}, \quad \text{ND
 ### Token Redundancy Ratio
 Measures duplicated token overhead introduced by chunk overlaps:
 $$\text{Redundancy} = 1 - \frac{|\text{Unique Tokens}|}{\sum |\text{Chunk Tokens}|}$$
+
+### Ground Truth Methodology & Limitations
+- **Dynamic Chunk Evaluation**: Because each chunking strategy generates distinct chunk counts and character boundaries (e.g., 7 chunks in Markdown vs. 21 in Semantic), static chunk IDs cannot serve as universal ground truth across all strategies.
+- **Topical Keyword Evidence Matching**: Relevance is evaluated by checking if a retrieved chunk satisfies the required keyword density ($\ge 50\%$) for a golden test query.
+- **Strict Evidence Requirement**: If a test query has no grounded evidence chunk in a given chunking configuration, it strictly scores `0.0` across all metrics. No heuristic fallbacks or fabricated relevance labels are applied.
+- **Scope Limitation**: Benchmark metrics reflect retrieval accuracy against the defined golden test suite. For free-form user queries without ground-truth labels, the Embedding Comparator provides rank alignment and Jaccard overlap diagnostics instead of synthetic precision/recall numbers.
 
 ---
 
@@ -114,30 +148,39 @@ semantic               | 0.6667   | 87.5   % | 0.7202   | 0.48  ms | 21
 
 ---
 
-## 6. Getting Started (Windows Setup)
+## 6. Getting Started (Setup & Installation)
 
 ### Prerequisites
-- Windows 10/11 (64-bit).
+- Windows 10/11, macOS, or Linux.
 - Python 3.12 (via `uv` or Python installer).
-- Node.js 18+ (Node 20 or 24 recommended).
+- Node.js 18+ (Node 20 or 22+ recommended).
+
+### Clone the Repository
+```powershell
+git clone https://github.com/<your-username>/ragbench-studio.git
+cd ragbench-studio
+```
+
+> [!NOTE]
+> **Network Usage Note**: Initial setup requires an internet connection to install Python and npm packages. Once installed, the entire system operates **100% offline** with zero outbound cloud or API calls. Feature Hashing runs immediately offline; FastEmbed downloads its lightweight ONNX weights (64 MB) only on first semantic query or explicit warmup.
 
 ### Step 1: Backend Setup
 ```powershell
-cd "D:\Revanth projects\RAGBench Studio\backend"
+cd backend
 
-# Create Python 3.12 virtual environment
+# Create Python 3.12 virtual environment (using uv or standard python)
 uv venv --python 3.12 .venv
 
 # Install dependencies
 uv pip install --python .venv\Scripts\python.exe -r requirements.txt
 
-# Run automated test suite
+# Run automated test suite (43 tests)
 .\.venv\Scripts\python.exe -m pytest -v
 ```
 
 ### Step 2: Frontend Setup
 ```powershell
-cd "D:\Revanth projects\RAGBench Studio\frontend"
+cd ../frontend
 npm install
 npm run build
 ```
@@ -146,21 +189,21 @@ npm run build
 
 ## 7. Running RAGBench Studio Locally
 
-Open **two PowerShell terminal windows**:
+Open **two terminal windows**:
 
 ### Terminal 1 — Start the FastAPI Backend:
 ```powershell
-cd "D:\Revanth projects\RAGBench Studio\backend"
+cd backend
 .\.venv\Scripts\python.exe -m uvicorn app.main:app --host 127.0.0.1 --port 8000 --reload
 ```
 *Backend API will run at `http://127.0.0.1:8000` (interactive OpenAPI docs at `http://127.0.0.1:8000/docs`).*
 
 ### Terminal 2 — Start the React Dashboard:
 ```powershell
-cd "D:\Revanth projects\RAGBench Studio\frontend"
+cd frontend
 npm run dev
 ```
-*Frontend interface will run at `http://localhost:5173`.*
+*Frontend interface will run at `http://localhost:5173` (proxies `/api` requests to backend).*
 
 ---
 
@@ -187,42 +230,47 @@ npm run dev
 
 ## 9. Testing & Quality Assurance
 
-The project includes **38 automated tests** across SQLite repository persistence, the 4 chunkers, IR evaluation formulas, vector retrieval, model warmup, semantic comparison, file upload validation, benchmark export, comparator API, and FastAPI routes:
+The project includes **43 automated tests** across SQLite repository persistence, the 4 chunkers, IR evaluation formulas, vector retrieval, model warmup, semantic comparison, file upload validation, benchmark export, comparator API, edge-case duplicate discounting, and FastAPI routes:
 
 ```powershell
-cd "D:\Revanth projects\RAGBench Studio\backend"
+cd backend
 .\.venv\Scripts\python.exe -m pytest -v
 ```
 
 ```text
-tests/test_api.py (7 tests) ............................ PASSED
+tests/test_api.py (9 tests) ............................ PASSED
 tests/test_benchmark_export.py (2 tests) ............... PASSED
 tests/test_chunkers.py (5 tests) ....................... PASSED
-tests/test_embedding_comparator.py (3 tests) ........... PASSED
+tests/test_embedding_comparator.py (4 tests) ........... PASSED
 tests/test_embeddings_retriever.py (3 tests) ........... PASSED
 tests/test_file_upload.py (5 tests) .................... PASSED
-tests/test_ir_metrics.py (6 tests) ..................... PASSED
+tests/test_ir_metrics.py (8 tests) ..................... PASSED
 tests/test_models_and_fastembed.py (4 tests) ........... PASSED
 tests/test_repository.py (3 tests) ..................... PASSED
 
-======================== 38 passed in 4.56s ========================
+======================== 43 passed in 4.55s ========================
 ```
 
 Frontend production build check:
 ```powershell
-cd "D:\Revanth projects\RAGBench Studio\frontend"
+cd frontend
 npm run build
-# Output: built in 551ms (0 errors, 0 warnings)
+# Output: built in 606ms (0 errors, 0 warnings)
 ```
 
 ---
 
 ## 10. Hardware & Zero-Cost Architecture
 
-- **100% On-Device Processing**: Document chunking, vector embedding, and similarity search run entirely on CPU/GPU via NumPy vectorization.
+- **100% On-Device Processing**: Document chunking, vector embedding, and similarity search run entirely on CPU via NumPy vectorization and FastEmbed ONNX runtime.
 - **₹0 Cloud Cost**: No OpenAI/Anthropic API keys, subscriptions, or external network requests.
-- **Strict Memory Budget**: Traced process memory is **under 1 MB RAM** during benchmark execution; completely safe for 8 GB RAM machines.
-- **No Cloud Database**: Uses SQLite in Write-Ahead Logging (WAL) mode for local relational storage.
+- **Strict Memory & Disk Footprint (Verified & Measured)**:
+  - FastEmbed Model Cache (`BAAI/bge-small-en-v1.5`): **64.07 MB** on disk (`%LOCALAPPDATA%\Temp\fastembed_cache`).
+  - SQLite Relational & Vector Storage: **~600 KB** in Write-Ahead Logging (WAL) mode (`backend/data/ragbench.db`).
+  - Feature Hashing Warm Latency: **~0.26 ms** per query.
+  - FastEmbed ONNX Warm Latency: **~5.7 ms** per query.
+  - Peak Traced Process Memory: **< 1.0 MB RAM** during benchmark execution; completely safe for 8 GB RAM machines.
+- **Vector Space Isolation**: Ensures 256d baseline vectors and 384d semantic vectors reside in strictly separated collections and are never invalidly cross-compared.
 
 ---
 
@@ -232,6 +280,30 @@ npm run build
 - **IR Metrics over LLM-as-a-judge**: Why computing deterministic MRR and Hit Rate@K provides an uncheatable regression gate before deploying to production.
 - **Vector Space Math**: How unit L2 normalization transforms cosine similarity into a single matrix dot product $\mathbf{C} \cdot \mathbf{q}$, enabling sub-millisecond retrieval in NumPy without heavy vector database daemons.
 - **SQLite BLOB Storage**: Storing float32 NumPy vector blobs directly in SQLite to achieve local-first, zero-setup vector persistence.
+
+---
+
+## 12. Troubleshooting & FAQ
+
+#### Q: PowerShell blocks script execution when activating `.venv`?
+Run:
+```powershell
+Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass
+```
+This enables virtual environment scripts for your current terminal session only.
+
+#### Q: Port 8000 or 5173 is already in use?
+- To run FastAPI on an alternate port:
+  ```powershell
+  uvicorn app.main:app --port 8001
+  ```
+- Update `frontend/vite.config.ts` target proxy from `http://127.0.0.1:8000` to `http://127.0.0.1:8001`.
+
+#### Q: What file formats are supported for document upload?
+Plaintext (`.txt`) and Markdown (`.md`) files up to 2 MB are supported via the **New Doc** modal.
+
+#### Q: How is ground truth determined for custom documents?
+When uploading or creating a document, you can define custom golden test queries with expected keyphrases. Chunks containing $\ge 50\%$ of the query keywords are labeled as ground truth. If a query has no matching chunk in the document, it strictly evaluates to `0.0`.
 
 ---
 

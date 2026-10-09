@@ -31,6 +31,9 @@ runner = BenchmarkRunner(repo)
 
 @router.post("/query", response_model=QuerySearchResponse)
 def search_query(req: QuerySearchRequest):
+    if not req.query.strip():
+        raise HTTPException(status_code=400, detail="Query cannot be empty or whitespace only")
+
     doc = repo.get_document(req.document_id)
     if not doc:
         raise HTTPException(status_code=404, detail="Document not found")

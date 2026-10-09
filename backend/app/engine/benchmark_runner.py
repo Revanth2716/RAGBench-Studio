@@ -140,21 +140,10 @@ class BenchmarkRunner:
                 keywords = q["relevant_keywords"]
 
                 # Determine which chunks in the collection are truly relevant for ground truth
+                # strictly via keyword evidence verification; never fabricate relevance when 0 chunks qualify
                 relevant_chunk_ids = {
                     c["id"] for c in chunks if is_chunk_relevant(c["text"], keywords)
                 }
-
-                # If no chunk matches 50% of keywords, match the single best chunk by keyword presence
-                if not relevant_chunk_ids:
-                    best_match = None
-                    best_count = 0
-                    for c in chunks:
-                        cnt = sum(1 for kw in keywords if kw.lower() in c["text"].lower())
-                        if cnt > best_count:
-                            best_count = cnt
-                            best_match = c["id"]
-                    if best_match:
-                        relevant_chunk_ids.add(best_match)
 
                 # Search using the model-matched retriever
                 search_res = retriever.search(q_text, chunks, top_k=top_k)

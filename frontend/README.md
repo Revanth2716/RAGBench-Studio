@@ -1,32 +1,36 @@
-# React + TypeScript + Vite
+# RAGBench Studio — Frontend Dashboard
 
-This template provides a minimal setup to get React working in Vite with HMR and some Oxlint rules.
+Interactive React + TypeScript dashboard for the RAGBench Studio platform.
 
-Currently, two official plugins are available:
+## Technology Stack
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
+- **Framework**: React 19 + TypeScript
+- **Bundler & Dev Server**: Vite 8
+- **Styling**: Tailwind CSS v4 (dark mode theme)
+- **Icons**: Lucide React
+- **Linter**: Oxlint
 
-## React Compiler
+## UI Components & Tabs
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+- **Chunk Visualizer** (`src/components/ChunkVisualizer.tsx`): Real-time interactive inspection of chunk boundaries, token length distribution, and redundancy overhead across all 4 strategies.
+- **Query Playground** (`src/components/QueryPlayground.tsx`): 4-column side-by-side search comparing retrieved passage cards with cosine similarity scores.
+- **Embedding Comparator** (`src/components/EmbeddingComparator.tsx`): Dual-model head-to-head retrieval (256d Feature Hashing vs. 384d FastEmbed), rank divergence matrix, and Jaccard Top-K overlap calculation.
+- **IR Leaderboard** (`src/components/BenchmarkLeaderboard.tsx`): Canonical Information Retrieval scorecards (MRR, Hit Rate@K, NDCG@K, Precision, Recall) with CSV/JSON run export.
+- **Run History** (`src/components/RunHistory.tsx`): SQLite historical run explorer with one-click re-inspection into the Leaderboard.
+- **Document Modal** (`src/components/DocumentModal.tsx`): Ingestion interface supporting drag-and-drop `.txt` and `.md` file uploads alongside custom golden query authoring.
 
-## Expanding the Oxlint configuration
+## Development & Build
 
-If you are developing a production application, we recommend enabling type-aware lint rules by installing `oxlint-tsgolint` and editing `.oxlintrc.json`:
+```bash
+# Install dependencies
+npm install
 
-```json
-{
-  "$schema": "./node_modules/oxlint/configuration_schema.json",
-  "plugins": ["react", "typescript", "oxc"],
-  "options": {
-    "typeAware": true
-  },
-  "rules": {
-    "react/rules-of-hooks": "error",
-    "react/only-export-components": ["warn", { "allowConstantExport": true }]
-  }
-}
+# Start local dev server (port 5173 with API proxy to 127.0.0.1:8000)
+npm run dev
+
+# Run TypeScript checks and production build
+npm run build
+
+# Run linter
+npm run lint
 ```
-
-See the [Oxlint rules documentation](https://oxc.rs/docs/guide/usage/linter/rules) for the full list of rules and categories.
