@@ -45,7 +45,10 @@ export function App() {
       setHealth(h)
       setDocuments(docs)
       if (docs.length > 0) {
-        setSelectedDocId(docs[0].id)
+        const targetId = selectedDocId && docs.some((d) => d.id === selectedDocId) ? selectedDocId : docs[0].id
+        setSelectedDocId(targetId)
+        const doc = await getDocumentDetail(targetId)
+        setActiveDocument(doc)
       }
     } catch (err: any) {
       setError(err.message || 'Failed to connect to RAGBench backend API.')
@@ -67,6 +70,7 @@ export function App() {
     const docs = await getDocuments()
     setDocuments(docs)
     setSelectedDocId(newDocId)
+    await loadDocumentDetail(newDocId)
   }
 
   const handleSelectHistoricalRun = (runDetail: any) => {
@@ -111,10 +115,13 @@ export function App() {
           <div className="flex items-center justify-between bg-slate-900/40 border border-slate-800/80 px-4 py-3 rounded-xl">
             <div className="flex items-center space-x-3">
               <FileText className="w-4 h-4 text-slate-400" />
-              <span className="text-xs font-semibold text-slate-300 uppercase tracking-wider">
+              <label htmlFor="active-corpus-select" className="text-xs font-semibold text-slate-300 uppercase tracking-wider">
                 Active Corpus:
-              </span>
+              </label>
               <select
+                id="active-corpus-select"
+                name="active_corpus"
+                aria-label="Active Corpus Selector"
                 value={selectedDocId}
                 onChange={(e) => setSelectedDocId(e.target.value)}
                 className="bg-slate-950 border border-slate-700/80 text-xs font-semibold text-white px-3 py-1.5 rounded-lg focus:outline-none focus:border-indigo-500 cursor-pointer"

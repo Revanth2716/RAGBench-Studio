@@ -19,12 +19,17 @@ export const QueryPlayground: React.FC<QueryPlaygroundProps> = ({ document }) =>
   const [topK, setTopK] = useState<number>(3)
   const [loading, setLoading] = useState<boolean>(false)
   const [searchResults, setSearchResults] = useState<QuerySearchResponse | null>(null)
+  const [searchError, setSearchError] = useState<string | null>(null)
 
   const handleSearch = async (queryText?: string) => {
     if (!document) return
-    const activeQuery = queryText || query
-    if (!activeQuery.trim()) return
+    const activeQuery = (queryText !== undefined ? queryText : query).trim()
+    if (!activeQuery) {
+      setSearchError('Please enter a non-empty search query.')
+      return
+    }
 
+    setSearchError(null)
     setLoading(true)
     try {
       const res = await searchQueries({
@@ -33,8 +38,9 @@ export const QueryPlayground: React.FC<QueryPlaygroundProps> = ({ document }) =>
         top_k: topK,
       })
       setSearchResults(res)
-    } catch (err) {
+    } catch (err: any) {
       console.error('Search error:', err)
+      setSearchError(err.message || 'Search failed. Please verify API connection.')
     } finally {
       setLoading(false)
     }
@@ -50,9 +56,15 @@ export const QueryPlayground: React.FC<QueryPlaygroundProps> = ({ document }) =>
           <div className="relative flex-1 w-full">
             <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400" />
             <input
+              id="search-query-input"
+              name="search_query"
+              aria-label="Evaluation Search Query"
               type="text"
               value={query}
-              onChange={(e) => setQuery(e.target.value)}
+              onChange={(e) => {
+                setQuery(e.target.value)
+                if (searchError) setSearchError(null)
+              }}
               onKeyDown={(e) => e.key === 'Enter' && handleSearch()}
               placeholder="Enter evaluation query (e.g. How does product quantization compress vectors?)"
               className="w-full bg-slate-950/80 border border-slate-700/80 rounded-xl pl-12 pr-4 py-3 text-sm text-white placeholder-slate-500 focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500"
@@ -62,8 +74,11 @@ export const QueryPlayground: React.FC<QueryPlaygroundProps> = ({ document }) =>
           <div className="flex items-center space-x-3 w-full md:w-auto justify-between">
             <div className="flex items-center space-x-2 bg-slate-950 px-3 py-2 rounded-xl border border-slate-800">
               <Sliders className="w-4 h-4 text-slate-400" />
-              <span className="text-xs text-slate-300 font-medium">Top-K:</span>
+              <label htmlFor="top-k-select" className="text-xs text-slate-300 font-medium">Top-K:</label>
               <select
+                id="top-k-select"
+                name="top_k"
+                aria-label="Top-K count"
                 value={topK}
                 onChange={(e) => setTopK(Number(e.target.value))}
                 className="bg-transparent text-xs font-mono font-bold text-indigo-400 focus:outline-none cursor-pointer"
@@ -86,6 +101,12 @@ export const QueryPlayground: React.FC<QueryPlaygroundProps> = ({ document }) =>
             </button>
           </div>
         </div>
+
+        {searchError && (
+          <div className="mt-3 p-3 rounded-xl bg-rose-500/10 border border-rose-500/20 text-rose-300 text-xs">
+            {searchError}
+          </div>
+        )}
 
         {/* Quick Sample Queries */}
         {sampleQueries.length > 0 && (

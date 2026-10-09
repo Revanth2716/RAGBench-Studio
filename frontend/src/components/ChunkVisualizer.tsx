@@ -157,35 +157,47 @@ export const ChunkVisualizer: React.FC<ChunkVisualizerProps> = ({ document }) =>
           {/* Controls */}
           <div className="md:col-span-2 flex flex-wrap items-center gap-6">
             <div className="flex items-center space-x-3">
-              <label className="text-xs font-medium text-slate-300 flex items-center space-x-1">
+              <label htmlFor="chunk-size-slider" className="text-xs font-medium text-slate-300 flex items-center space-x-1">
                 <Sliders className="w-3.5 h-3.5 text-slate-400" />
                 <span>Chunk Size:</span>
                 <span className="font-mono text-indigo-400 font-semibold">{chunkSize} chars</span>
               </label>
               <input
+                id="chunk-size-slider"
+                name="chunk_size"
+                aria-label="Chunk Size"
                 type="range"
                 min="150"
                 max="800"
                 step="25"
                 value={chunkSize}
-                onChange={(e) => setChunkSize(Number(e.target.value))}
+                onChange={(e) => {
+                  const newSize = Number(e.target.value)
+                  setChunkSize(newSize)
+                  if (overlap >= newSize) {
+                    setOverlap(Math.max(0, newSize - 50))
+                  }
+                }}
                 className="w-32 accent-indigo-500 cursor-pointer"
               />
             </div>
 
             {(selectedStrategy === 'fixed_window' || selectedStrategy === 'recursive') && (
               <div className="flex items-center space-x-3">
-                <label className="text-xs font-medium text-slate-300 flex items-center space-x-1">
+                <label htmlFor="overlap-slider" className="text-xs font-medium text-slate-300 flex items-center space-x-1">
                   <Copy className="w-3.5 h-3.5 text-slate-400" />
                   <span>Overlap:</span>
                   <span className="font-mono text-indigo-400 font-semibold">{overlap} chars</span>
                 </label>
                 <input
+                  id="overlap-slider"
+                  name="overlap"
+                  aria-label="Overlap"
                   type="range"
                   min="0"
-                  max="150"
+                  max={Math.max(0, chunkSize - 25)}
                   step="10"
-                  value={overlap}
+                  value={Math.min(overlap, chunkSize - 25)}
                   onChange={(e) => setOverlap(Number(e.target.value))}
                   className="w-28 accent-indigo-500 cursor-pointer"
                 />
@@ -194,12 +206,15 @@ export const ChunkVisualizer: React.FC<ChunkVisualizerProps> = ({ document }) =>
 
             {selectedStrategy === 'semantic' && (
               <div className="flex items-center space-x-3">
-                <label className="text-xs font-medium text-slate-300 flex items-center space-x-1">
+                <label htmlFor="sim-threshold-slider" className="text-xs font-medium text-slate-300 flex items-center space-x-1">
                   <Sparkles className="w-3.5 h-3.5 text-slate-400" />
                   <span>Sim Threshold:</span>
                   <span className="font-mono text-purple-400 font-semibold">{simThreshold}</span>
                 </label>
                 <input
+                  id="sim-threshold-slider"
+                  name="sim_threshold"
+                  aria-label="Similarity Threshold"
                   type="range"
                   min="0.1"
                   max="0.8"
@@ -221,7 +236,7 @@ export const ChunkVisualizer: React.FC<ChunkVisualizerProps> = ({ document }) =>
               </span>
             </div>
             <div className="bg-slate-950/80 px-3.5 py-1.5 rounded-xl border border-slate-800 text-center">
-              <span className="text-[10px] uppercase tracking-wider text-slate-400 block">Avg Tokens</span>
+              <span className="text-[10px] uppercase tracking-wider text-slate-400 block">Avg Est. Tokens</span>
               <span className="text-base font-bold font-mono text-indigo-400">
                 {previewData && previewData.total_chunks > 0
                   ? Math.round(previewData.total_tokens / previewData.total_chunks)
@@ -314,7 +329,7 @@ export const ChunkVisualizer: React.FC<ChunkVisualizerProps> = ({ document }) =>
                         #{c.chunk_index}
                       </span>
                       <span className="text-[11px] font-mono text-slate-400">
-                        {c.token_count} tokens
+                        {c.token_count} est. tokens
                       </span>
                     </div>
                     <span className="text-[10px] font-mono text-slate-500">

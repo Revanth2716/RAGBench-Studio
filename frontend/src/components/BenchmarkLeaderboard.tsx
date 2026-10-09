@@ -85,7 +85,7 @@ export const BenchmarkLeaderboard: React.FC<BenchmarkLeaderboardProps> = ({
             ) : (
               <Play className="w-4 h-4 fill-current" />
             )}
-            <span>{loading ? 'Evaluating...' : 'Run 8-Query Benchmark'}</span>
+            <span>{loading ? 'Evaluating...' : `Run ${querySet?.queries?.length || 8}-Query Benchmark`}</span>
           </button>
         </div>
       </div>

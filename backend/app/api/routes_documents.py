@@ -23,6 +23,12 @@ def list_documents():
 
 @router.post("", response_model=DocumentResponse)
 def create_document(req: DocumentCreateRequest):
+    if not req.title.strip() or not req.content.strip():
+        raise HTTPException(
+            status_code=400,
+            detail="Title and content cannot be empty or whitespace-only",
+        )
+
     doc_id = str(uuid.uuid4())
     token_cnt = estimate_token_count(req.content)
     char_cnt = len(req.content)

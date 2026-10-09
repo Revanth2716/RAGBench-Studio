@@ -96,10 +96,13 @@ export const DocumentModal: React.FC<DocumentModalProps> = ({
           )}
 
           <div>
-            <label className="block text-xs font-semibold text-slate-300 mb-1.5">
+            <label htmlFor="doc-title-input" className="block text-xs font-semibold text-slate-300 mb-1.5">
               Document Title
             </label>
             <input
+              id="doc-title-input"
+              name="doc_title"
+              aria-label="Document Title"
               type="text"
               value={title}
               onChange={(e) => setTitle(e.target.value)}
@@ -109,10 +112,13 @@ export const DocumentModal: React.FC<DocumentModalProps> = ({
           </div>
 
           <div>
-            <label className="block text-xs font-semibold text-slate-300 mb-1.5">
+            <label htmlFor="doc-content-input" className="block text-xs font-semibold text-slate-300 mb-1.5">
               Content (Markdown or Plain Text)
             </label>
             <textarea
+              id="doc-content-input"
+              name="doc_content"
+              aria-label="Document Content"
               rows={8}
               value={content}
               onChange={(e) => setContent(e.target.value)}
@@ -148,6 +154,9 @@ export const DocumentModal: React.FC<DocumentModalProps> = ({
                 >
                   <div className="flex-1 space-y-2">
                     <input
+                      id={`query-text-${idx}`}
+                      name={`query_text_${idx}`}
+                      aria-label={`Evaluation Query Text ${idx + 1}`}
                       type="text"
                       placeholder="Query text (e.g. What is the leader election timeout?)"
                       value={q.query_text}
@@ -155,6 +164,9 @@ export const DocumentModal: React.FC<DocumentModalProps> = ({
                       className="w-full bg-slate-900 border border-slate-800 rounded-lg px-2.5 py-1.5 text-xs text-white focus:outline-none focus:border-indigo-500"
                     />
                     <input
+                      id={`query-kw-${idx}`}
+                      name={`query_kw_${idx}`}
+                      aria-label={`Ground Truth Keywords ${idx + 1}`}
                       type="text"
                       placeholder="Ground truth keywords (comma-separated: leader election, timeout, heartbeat)"
                       value={q.relevant_keywords.join(', ')}

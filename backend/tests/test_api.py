@@ -108,3 +108,26 @@ def test_api_benchmarks_run_and_list(client):
     detail_run_res = client.get(f"{settings.API_PREFIX}/benchmarks/runs/{run_data['run_id']}")
     assert detail_run_res.status_code == 200
     assert detail_run_res.json()["id"] == run_data["run_id"]
+
+def test_api_invalid_chunk_parameters_returns_400(client):
+    res = client.post(
+        f"{settings.API_PREFIX}/chunks/preview",
+        json={
+            "text": "Valid test text",
+            "strategy_name": "fixed_window",
+            "parameters": {"chunk_size": 100, "overlap": 100},
+        },
+    )
+    assert res.status_code == 400
+    assert "must be strictly less than" in res.json()["detail"]
+
+def test_api_whitespace_document_rejected_400(client):
+    res = client.post(
+        f"{settings.API_PREFIX}/documents",
+        json={
+            "title": "   ",
+            "content": "   ",
+        },
+    )
+    assert res.status_code == 400
+    assert "whitespace-only" in res.json()["detail"]

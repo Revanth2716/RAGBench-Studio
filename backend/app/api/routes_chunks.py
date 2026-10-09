@@ -25,8 +25,11 @@ def preview_chunks(req: ChunkPreviewRequest):
     if not text_to_chunk:
         raise HTTPException(status_code=400, detail="Either 'text' or a valid 'document_id' must be provided")
 
-    chunker = get_chunker(req.strategy_name, **req.parameters)
-    raw_chunks = chunker.chunk(text_to_chunk)
+    try:
+        chunker = get_chunker(req.strategy_name, **req.parameters)
+        raw_chunks = chunker.chunk(text_to_chunk)
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
 
     chunk_items = [
         ChunkItem(
