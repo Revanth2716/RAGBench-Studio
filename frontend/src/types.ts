@@ -146,3 +146,53 @@ export interface BenchmarkRunListItem {
     total_chunks: number
   }[]
 }
+
+export interface ModelRetrievalMetrics {
+  reciprocal_rank: number
+  hit_rate: number
+  ndcg: number
+  precision_at_k: number
+  recall_at_k: number
+}
+
+export interface ModelRetrievalResult {
+  model_id: string
+  model_name: string
+  dimension: number
+  is_semantic: boolean
+  latency_ms: number
+  init_latency_ms?: number | null
+  is_cold_start: boolean
+  error?: string | null
+  results: RetrievedChunk[]
+  metrics?: ModelRetrievalMetrics | null
+}
+
+export interface ChunkRankComparison {
+  chunk_index: number
+  text_preview: string
+  start_char: number
+  end_char: number
+  token_count: number
+  rank_feature_hashing?: number | null
+  rank_fastembed?: number | null
+  score_feature_hashing?: number | null
+  score_fastembed?: number | null
+  rank_delta?: number | null
+}
+
+export interface EmbeddingCompareResponse {
+  document_id: string
+  query: string
+  strategy_name: string
+  top_k: number
+  feature_hashing: ModelRetrievalResult
+  fastembed: ModelRetrievalResult
+  jaccard_overlap: number
+  shared_chunk_count: number
+  rank_comparisons: ChunkRankComparison[]
+  evaluation_matched: boolean
+  evaluation_query_text?: string | null
+  relevant_keywords: string[]
+}
+

@@ -7,6 +7,7 @@ import type {
   QuerySearchResponse,
   BenchmarkRunResponse,
   BenchmarkRunListItem,
+  EmbeddingCompareResponse,
 } from './types'
 
 const BASE_URL = '/api/v1'
@@ -135,4 +136,19 @@ export async function getBenchmarkRunDetail(runId: string): Promise<any> {
 
 export function getBenchmarkExportUrl(runId: string, format: 'csv' | 'json' = 'csv'): string {
   return `${BASE_URL}/benchmarks/runs/${runId}/export?format=${format}`
+}
+
+export async function compareEmbeddings(payload: {
+  document_id: string
+  query: string
+  strategy_name: string
+  top_k?: number
+  strategy_params?: Record<string, any>
+}): Promise<EmbeddingCompareResponse> {
+  const res = await fetch(`${BASE_URL}/search/compare`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload),
+  })
+  return handleResponse<EmbeddingCompareResponse>(res)
 }

@@ -19,31 +19,33 @@ Most AI developers guess their chunking hyperparameters (`chunk_size=512, overla
 ## 2. Architecture & Data Flow
 
 ```text
-[ Document Ingestion /api/v1/documents ]
+[ Document Ingestion /api/v1/documents + File Upload (.md, .txt) ]
                  │
                  ├──> [1. Fixed Window Chunker] ────────> Sliding char stride
                  ├──> [2. Recursive Delimiter Chunker] ──> Paragraph -> Sentence -> Word
                  ├──> [3. Semantic Boundary Chunker] ────> Sentence cosine drop transitions
                  └──> [4. Markdown Hierarchy Chunker] ───> Header breadcrumbs & code fence protection
                                  │
-                                 ▼
-                 [ Deterministic Vector Embedder ] ──────> 256-dim float32 dense vectors (L2 normalized)
+                 ┌───────────────┴───────────────┐
+                 ▼                               ▼
+  [ Deterministic Feature Hashing ]    [ FastEmbed BGE-Small-en-v1.5 ]
+    (256d MurmurHash3, ~0.3ms CPU)       (384d Dense Semantic, ONNX CPU)
+                 │                               │
+                 └───────────────┬───────────────┘
                                  │
                                  ▼
                      [ SQLite Storage (WAL Mode) ]
-                      ├── documents
+                      ├── documents & file uploads
                       ├── chunk_collections & chunks (BLOB vectors)
                       ├── test_query_sets & test_queries
                       └── benchmark_runs & strategy_results
                                  │
-        ┌────────────────────────┴────────────────────────┐
-        ▼                                                 ▼
-[ Side-by-Side Query Search ]                  [ Automated IR Benchmark Suite ]
-- Real-time Top-K comparison                   - MRR (Mean Reciprocal Rank)
-- Per-strategy latency & score                 - Hit Rate @ K
-- Context boundary inspection                  - NDCG @ K (Discounted Gain)
-                                               - Precision@K & Recall@K
-                                               - Token Redundancy Ratio
+        ┌────────────────────────┼────────────────────────┐
+        ▼                        ▼                        ▼
+[ Side-by-Side Query Search ] [ Embedding Comparator ]  [ Automated IR Benchmark Suite ]
+- 4 chunkers real-time        - 256d vs 384d simultaneous- MRR & Hit Rate @ K
+- Per-strategy scores         - Jaccard overlap & rank Δ- NDCG @ K & Precision/Recall
+- Context boundary inspec     - Diagnostic presets suite- CSV & JSON Export
 ```
 
 ---
@@ -167,20 +169,25 @@ npm run dev
 | Method | Endpoint | Description |
 | :--- | :--- | :--- |
 | `GET` | `/api/v1/health` | System status, SQLite status, and available chunkers. |
+| `GET` | `/api/v1/models` | List available embedding models and loaded states. |
+| `POST` | `/api/v1/models/load` | Explicitly warm up / preload a model in memory. |
 | `GET` | `/api/v1/documents` | List all ingested documents. |
 | `POST` | `/api/v1/documents` | Ingest new document and optional evaluation queries. |
+| `POST` | `/api/v1/documents/upload` | Multipart file upload (`.md`, `.txt`) with format validation. |
 | `GET` | `/api/v1/documents/{id}` | Document content and attached query suites. |
 | `POST` | `/api/v1/chunks/preview` | Real-time chunk boundary generator with start/end offsets. |
 | `POST` | `/api/v1/search/query` | Side-by-side Top-K vector retrieval across all 4 strategies. |
+| `POST` | `/api/v1/search/compare` | Dual-model retrieval (256d vs 384d), Jaccard overlap, and rank deltas. |
 | `POST` | `/api/v1/benchmarks/run` | Execute multi-strategy IR evaluation and persist run. |
 | `GET` | `/api/v1/benchmarks/runs` | List historical benchmark runs from SQLite. |
 | `GET` | `/api/v1/benchmarks/runs/{id}` | Detailed per-query drill-down and scorecards. |
+| `GET` | `/api/v1/benchmarks/runs/{id}/export` | Export benchmark run as downloadable CSV or JSON. |
 
 ---
 
 ## 9. Testing & Quality Assurance
 
-The project includes **22 automated tests** across SQLite repository persistence, the 4 chunkers, IR evaluation formulas, vector retrieval, and FastAPI routes:
+The project includes **38 automated tests** across SQLite repository persistence, the 4 chunkers, IR evaluation formulas, vector retrieval, model warmup, semantic comparison, file upload validation, benchmark export, comparator API, and FastAPI routes:
 
 ```powershell
 cd "D:\Revanth projects\RAGBench Studio\backend"
@@ -188,20 +195,24 @@ cd "D:\Revanth projects\RAGBench Studio\backend"
 ```
 
 ```text
-tests/test_api.py (5 tests) ............................ PASSED
+tests/test_api.py (7 tests) ............................ PASSED
+tests/test_benchmark_export.py (2 tests) ............... PASSED
 tests/test_chunkers.py (5 tests) ....................... PASSED
+tests/test_embedding_comparator.py (3 tests) ........... PASSED
 tests/test_embeddings_retriever.py (3 tests) ........... PASSED
+tests/test_file_upload.py (5 tests) .................... PASSED
 tests/test_ir_metrics.py (6 tests) ..................... PASSED
+tests/test_models_and_fastembed.py (4 tests) ........... PASSED
 tests/test_repository.py (3 tests) ..................... PASSED
 
-======================== 22 passed in 3.06s ========================
+======================== 38 passed in 4.56s ========================
 ```
 
 Frontend production build check:
 ```powershell
 cd "D:\Revanth projects\RAGBench Studio\frontend"
 npm run build
-# Output: built in 595ms (0 errors, 0 warnings)
+# Output: built in 551ms (0 errors, 0 warnings)
 ```
 
 ---

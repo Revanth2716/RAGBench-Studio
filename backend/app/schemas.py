@@ -144,3 +144,56 @@ class BenchmarkRunListItem(BaseModel):
     status: str
     created_at: str
     strategy_summaries: list[dict[str, Any]]
+
+# --- Embedding Comparator ---
+class EmbeddingCompareRequest(BaseModel):
+    document_id: str
+    query: str
+    strategy_name: str = "markdown"
+    top_k: int = Field(default=5, ge=1, le=20)
+    strategy_params: dict[str, Any] | None = None
+
+class ModelRetrievalMetrics(BaseModel):
+    reciprocal_rank: float
+    hit_rate: float
+    ndcg: float
+    precision_at_k: float
+    recall_at_k: float
+
+class ModelRetrievalResult(BaseModel):
+    model_id: str
+    model_name: str
+    dimension: int
+    is_semantic: bool
+    latency_ms: float
+    init_latency_ms: float | None = None
+    is_cold_start: bool = False
+    error: str | None = None
+    results: list[RetrievedChunk]
+    metrics: ModelRetrievalMetrics | None = None
+
+class ChunkRankComparison(BaseModel):
+    chunk_index: int
+    text_preview: str
+    start_char: int
+    end_char: int
+    token_count: int
+    rank_feature_hashing: int | None = None
+    rank_fastembed: int | None = None
+    score_feature_hashing: float | None = None
+    score_fastembed: float | None = None
+    rank_delta: int | None = None
+
+class EmbeddingCompareResponse(BaseModel):
+    document_id: str
+    query: str
+    strategy_name: str
+    top_k: int
+    feature_hashing: ModelRetrievalResult
+    fastembed: ModelRetrievalResult
+    jaccard_overlap: float
+    shared_chunk_count: int
+    rank_comparisons: list[ChunkRankComparison]
+    evaluation_matched: bool = False
+    evaluation_query_text: str | None = None
+    relevant_keywords: list[str] = []

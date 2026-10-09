@@ -8,12 +8,13 @@ import {
   Database,
   Sparkles,
   Zap,
+  GitCompare,
 } from 'lucide-react'
 import type { HealthInfo, ModelInfo } from '../types'
 
 interface NavbarProps {
-  activeTab: 'visualizer' | 'playground' | 'leaderboard' | 'history'
-  setActiveTab: (tab: 'visualizer' | 'playground' | 'leaderboard' | 'history') => void
+  activeTab: 'visualizer' | 'playground' | 'comparator' | 'leaderboard' | 'history'
+  setActiveTab: (tab: 'visualizer' | 'playground' | 'comparator' | 'leaderboard' | 'history') => void
   health: HealthInfo | null
   embeddingModel: string
   setEmbeddingModel: (model: string) => void
@@ -79,6 +80,17 @@ export const Navbar: React.FC<NavbarProps> = ({
             >
               <Search className="w-4 h-4" />
               <span>Query Playground</span>
+            </button>
+            <button
+              onClick={() => setActiveTab('comparator')}
+              className={`flex items-center space-x-2 px-3.5 py-1.5 rounded-lg text-sm font-medium transition-all ${
+                activeTab === 'comparator'
+                  ? 'bg-indigo-600 text-white shadow-sm shadow-indigo-600/30'
+                  : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/50'
+              }`}
+            >
+              <GitCompare className="w-4 h-4" />
+              <span>Embedding Comparator</span>
             </button>
             <button
               onClick={() => setActiveTab('leaderboard')}

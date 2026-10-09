@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import { Navbar } from './components/Navbar'
 import { ChunkVisualizer } from './components/ChunkVisualizer'
 import { QueryPlayground } from './components/QueryPlayground'
+import { EmbeddingComparator } from './components/EmbeddingComparator'
 import { BenchmarkLeaderboard } from './components/BenchmarkLeaderboard'
 import { RunHistory } from './components/RunHistory'
 import { DocumentModal } from './components/DocumentModal'
@@ -16,9 +17,9 @@ import { getHealth, getModels, getDocuments, getDocumentDetail } from './api'
 import { FileText, AlertCircle, RefreshCw, Sparkles, Zap } from 'lucide-react'
 
 export function App() {
-  const [activeTab, setActiveTab] = useState<'visualizer' | 'playground' | 'leaderboard' | 'history'>(
-    'visualizer'
-  )
+  const [activeTab, setActiveTab] = useState<
+    'visualizer' | 'playground' | 'comparator' | 'leaderboard' | 'history'
+  >('visualizer')
   const [health, setHealth] = useState<HealthInfo | null>(null)
   const [models, setModels] = useState<ModelInfo[]>([])
   const [embeddingModel, setEmbeddingModel] = useState<string>('feature_hashing')
@@ -183,6 +184,10 @@ export function App() {
             embeddingModel={embeddingModel}
             onSelectEmbeddingModel={setEmbeddingModel}
           />
+        )}
+
+        {activeTab === 'comparator' && (
+          <EmbeddingComparator document={activeDocument} />
         )}
 
         {activeTab === 'leaderboard' && (
