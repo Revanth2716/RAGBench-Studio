@@ -4,7 +4,12 @@ import uuid
 from typing import Any
 from app.db.repository import SQLiteRepository
 from app.engine.chunkers import CHUNKERS, get_chunker
-from app.engine.embeddings import DeterministicVectorEmbedder, serialize_vector
+from app.engine.embeddings import (
+    BaseVectorEmbedder,
+    DeterministicVectorEmbedder,
+    get_embedder,
+    serialize_vector,
+)
 from app.engine.ir_metrics import (
     compute_reciprocal_rank,
     compute_hit_rate,
@@ -19,9 +24,9 @@ from app.engine.retriever import VectorRetriever
 class BenchmarkRunner:
     """
     Executes automated RAG retrieval benchmarks comparing all 4 chunking strategies
-    against a golden test query suite on a specified document.
+    against a golden test query suite on a specified document and embedding model.
     """
-    def __init__(self, repo: SQLiteRepository, embedder: DeterministicVectorEmbedder | None = None):
+    def __init__(self, repo: SQLiteRepository, embedder: BaseVectorEmbedder | None = None):
         self.repo = repo
         self.embedder = embedder or DeterministicVectorEmbedder()
         self.retriever = VectorRetriever(self.embedder)
@@ -31,11 +36,13 @@ class BenchmarkRunner:
         document_id: str,
         content: str,
         strategy_params: dict[str, dict[str, Any]] | None = None,
+        embedding_model: str = "feature_hashing",
     ) -> dict[str, list[dict[str, Any]]]:
         """
-        Chunks the document with all 4 strategies, embeds chunks, and saves to repository.
-        Returns mapped chunks per strategy.
+        Chunks the document with all 4 strategies, embeds chunks with the specified model,
+        and saves to repository tagged with embedding_model.
         """
+        embedder = get_embedder(embedding_model)
         strategy_params = strategy_params or {}
         prepared: dict[str, list[dict[str, Any]]] = {}
 
@@ -48,7 +55,7 @@ class BenchmarkRunner:
             chunks_data = []
 
             for c in raw_chunks:
-                vec = self.embedder.embed_text(c.text)
+                vec = embedder.embed_text(c.text)
                 c_dict = {
                     "id": c.id,
                     "chunk_index": c.chunk_index,
@@ -67,6 +74,7 @@ class BenchmarkRunner:
                 strategy_name=strategy_name,
                 parameters_json=json.dumps(params),
                 chunks_data=chunks_data,
+                embedding_model=embedding_model,
             )
             prepared[strategy_name] = chunks_data
 
@@ -78,6 +86,7 @@ class BenchmarkRunner:
         query_set_id: str,
         top_k: int = 3,
         strategy_params: dict[str, dict[str, Any]] | None = None,
+        embedding_model: str = "feature_hashing",
     ) -> dict[str, Any]:
         """
         Runs the full comparative benchmark suite across all strategies and persists the run.
@@ -90,13 +99,19 @@ class BenchmarkRunner:
         if not queries:
             raise ValueError(f"No test queries found for query set {query_set_id}")
 
-        # Ensure chunks exist for all 4 strategies
+        embedder = get_embedder(embedding_model)
+        retriever = VectorRetriever(embedder)
+
+        # Ensure chunks exist for all 4 strategies for this embedding_model
         chunks_by_strategy: dict[str, list[dict[str, Any]]] = {}
         for s_name in CHUNKERS.keys():
-            existing = self.repo.get_chunks_for_strategy(document_id, s_name)
+            existing = self.repo.get_chunks_for_strategy(
+                document_id, s_name, embedding_model=embedding_model
+            )
             if not existing:
-                # Generate chunks
-                all_chunks = self.prepare_chunks_for_document(document_id, doc["content"], strategy_params)
+                all_chunks = self.prepare_chunks_for_document(
+                    document_id, doc["content"], strategy_params, embedding_model=embedding_model
+                )
                 chunks_by_strategy = all_chunks
                 break
             chunks_by_strategy[s_name] = existing
@@ -141,8 +156,8 @@ class BenchmarkRunner:
                     if best_match:
                         relevant_chunk_ids.add(best_match)
 
-                # Search
-                search_res = self.retriever.search(q_text, chunks, top_k=top_k)
+                # Search using the model-matched retriever
+                search_res = retriever.search(q_text, chunks, top_k=top_k)
                 retrieved_ids = [r["chunk_id"] for r in search_res["results"]]
                 lat = search_res["latency_ms"]
                 latencies.append(lat)
@@ -201,6 +216,7 @@ class BenchmarkRunner:
             document_id=document_id,
             query_set_id=query_set_id,
             strategy_results=strategy_results,
+            embedding_model=embedding_model,
         )
 
         return {
@@ -208,5 +224,6 @@ class BenchmarkRunner:
             "document_id": document_id,
             "query_set_id": query_set_id,
             "top_k": top_k,
+            "embedding_model": embedding_model,
             "strategies": strategy_results,
         }

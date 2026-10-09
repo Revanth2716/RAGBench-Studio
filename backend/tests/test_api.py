@@ -83,13 +83,23 @@ def test_api_search_query(client):
 
 def test_api_benchmarks_run_and_list(client):
     docs_res = client.get(f"{settings.API_PREFIX}/documents")
-    doc = docs_res.json()[0]
-    detail_res = client.get(f"{settings.API_PREFIX}/documents/{doc['id']}")
-    query_set_id = detail_res.json()["query_sets"][0]["id"]
+    docs = docs_res.json()
+    target_doc = None
+    target_qs_id = None
+    for d in docs:
+        detail_res = client.get(f"{settings.API_PREFIX}/documents/{d['id']}")
+        data = detail_res.json()
+        if data.get("query_sets"):
+            target_doc = data
+            target_qs_id = data["query_sets"][0]["id"]
+            break
+
+    assert target_doc is not None
+    assert target_qs_id is not None
 
     bench_payload = {
-        "document_id": doc["id"],
-        "query_set_id": query_set_id,
+        "document_id": target_doc["id"],
+        "query_set_id": target_qs_id,
         "top_k": 3,
     }
     run_res = client.post(f"{settings.API_PREFIX}/benchmarks/run", json=bench_payload)

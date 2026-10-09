@@ -53,11 +53,22 @@ class ChunkPreviewResponse(BaseModel):
     redundancy_ratio: float
     chunks: list[ChunkItem]
 
+# --- Models ---
+class ModelInfo(BaseModel):
+    id: str
+    name: str
+    dimension: int
+    is_semantic: bool
+    description: str
+    is_loaded: bool
+    download_required: bool
+
 # --- Search ---
 class QuerySearchRequest(BaseModel):
     document_id: str
     query: str = Field(..., min_length=1)
     top_k: int = Field(default=3, ge=1, le=10)
+    embedding_model: str = "feature_hashing"
     strategies: list[str] | None = None  # if None, searches all 4 strategies
 
 class RetrievedChunk(BaseModel):
@@ -80,6 +91,7 @@ class QuerySearchResponse(BaseModel):
     document_id: str
     query: str
     top_k: int
+    embedding_model: str = "feature_hashing"
     strategies: list[StrategySearchResult]
 
 # --- Benchmarks ---
@@ -87,6 +99,7 @@ class BenchmarkRunRequest(BaseModel):
     document_id: str
     query_set_id: str
     top_k: int = Field(default=3, ge=1, le=10)
+    embedding_model: str = "feature_hashing"
     strategy_params: dict[str, dict[str, Any]] | None = None
 
 class QueryEvaluationDetail(BaseModel):
@@ -118,6 +131,7 @@ class BenchmarkRunResponse(BaseModel):
     document_id: str
     query_set_id: str
     top_k: int
+    embedding_model: str = "feature_hashing"
     strategies: list[StrategyBenchmarkResult]
 
 class BenchmarkRunListItem(BaseModel):
@@ -126,6 +140,7 @@ class BenchmarkRunListItem(BaseModel):
     document_title: str
     query_set_id: str
     query_set_name: str
+    embedding_model: str = "feature_hashing"
     status: str
     created_at: str
     strategy_summaries: list[dict[str, Any]]

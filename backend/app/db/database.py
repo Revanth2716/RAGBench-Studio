@@ -22,6 +22,7 @@ CREATE TABLE IF NOT EXISTS chunk_collections (
     strategy_name TEXT NOT NULL,
     parameters_json TEXT NOT NULL,
     chunk_count INTEGER NOT NULL,
+    embedding_model TEXT DEFAULT 'feature_hashing',
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
@@ -61,6 +62,7 @@ CREATE TABLE IF NOT EXISTS benchmark_runs (
     id TEXT PRIMARY KEY,
     document_id TEXT NOT NULL REFERENCES documents(id) ON DELETE CASCADE,
     query_set_id TEXT NOT NULL REFERENCES test_query_sets(id) ON DELETE CASCADE,
+    embedding_model TEXT DEFAULT 'feature_hashing',
     status TEXT NOT NULL DEFAULT 'completed',
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
@@ -95,6 +97,15 @@ def init_db(db_path: Path | str | None = None) -> None:
     conn = get_connection(db_path)
     try:
         conn.executescript(SCHEMA_SQL)
+        cursor = conn.cursor()
+        try:
+            cursor.execute("ALTER TABLE chunk_collections ADD COLUMN embedding_model TEXT DEFAULT 'feature_hashing';")
+        except sqlite3.OperationalError:
+            pass
+        try:
+            cursor.execute("ALTER TABLE benchmark_runs ADD COLUMN embedding_model TEXT DEFAULT 'feature_hashing';")
+        except sqlite3.OperationalError:
+            pass
         conn.commit()
     finally:
         conn.close()

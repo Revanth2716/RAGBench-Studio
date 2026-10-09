@@ -2,6 +2,7 @@ from fastapi import APIRouter, HTTPException
 from app.db.repository import SQLiteRepository
 from app.engine.benchmark_runner import BenchmarkRunner
 from app.engine.chunkers import CHUNKERS
+from app.engine.embeddings import get_embedder
 from app.engine.retriever import VectorRetriever
 from app.schemas import (
     QuerySearchRequest,
@@ -13,7 +14,6 @@ from app.schemas import (
 router = APIRouter(prefix="/search", tags=["Search"])
 repo = SQLiteRepository()
 runner = BenchmarkRunner(repo)
-retriever = VectorRetriever()
 
 @router.post("/query", response_model=QuerySearchResponse)
 def search_query(req: QuerySearchRequest):
@@ -21,6 +21,13 @@ def search_query(req: QuerySearchRequest):
     if not doc:
         raise HTTPException(status_code=404, detail="Document not found")
 
+    embedding_model = req.embedding_model or "feature_hashing"
+    try:
+        embedder = get_embedder(embedding_model)
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=f"Invalid embedding model: {e}")
+
+    retriever = VectorRetriever(embedder)
     target_strategies = req.strategies or list(CHUNKERS.keys())
     results_by_strategy: list[StrategySearchResult] = []
 
@@ -28,10 +35,12 @@ def search_query(req: QuerySearchRequest):
         if s_name not in CHUNKERS:
             continue
 
-        chunks = repo.get_chunks_for_strategy(req.document_id, s_name)
+        chunks = repo.get_chunks_for_strategy(req.document_id, s_name, embedding_model=embedding_model)
         if not chunks:
-            # Auto-prepare chunks on the fly
-            all_prepared = runner.prepare_chunks_for_document(req.document_id, doc["content"])
+            # Auto-prepare chunks on the fly with this embedding model
+            all_prepared = runner.prepare_chunks_for_document(
+                req.document_id, doc["content"], embedding_model=embedding_model
+            )
             chunks = all_prepared.get(s_name, [])
 
         search_res = retriever.search(req.query, chunks, top_k=req.top_k)
@@ -63,5 +72,6 @@ def search_query(req: QuerySearchRequest):
         document_id=req.document_id,
         query=req.query,
         top_k=req.top_k,
+        embedding_model=embedding_model,
         strategies=results_by_strategy,
     )

@@ -66,23 +66,24 @@ class SQLiteRepository:
         strategy_name: str,
         parameters_json: str,
         chunks_data: list[dict[str, Any]],
+        embedding_model: str = "feature_hashing",
     ) -> None:
         conn = self._get_conn()
         try:
-            # Delete any existing collection for this document and strategy
+            # Delete any existing collection for this document, strategy, and embedding_model
             existing = conn.execute(
-                "SELECT id FROM chunk_collections WHERE document_id = ? AND strategy_name = ?",
-                (document_id, strategy_name),
+                "SELECT id FROM chunk_collections WHERE document_id = ? AND strategy_name = ? AND (embedding_model = ? OR (embedding_model IS NULL AND ? = 'feature_hashing'))",
+                (document_id, strategy_name, embedding_model, embedding_model),
             ).fetchall()
             for r in existing:
                 conn.execute("DELETE FROM chunk_collections WHERE id = ?", (r["id"],))
 
             conn.execute(
                 """
-                INSERT INTO chunk_collections (id, document_id, strategy_name, parameters_json, chunk_count)
-                VALUES (?, ?, ?, ?, ?)
+                INSERT INTO chunk_collections (id, document_id, strategy_name, parameters_json, chunk_count, embedding_model)
+                VALUES (?, ?, ?, ?, ?, ?)
                 """,
-                (collection_id, document_id, strategy_name, parameters_json, len(chunks_data)),
+                (collection_id, document_id, strategy_name, parameters_json, len(chunks_data), embedding_model),
             )
 
             insert_chunks = []
@@ -111,7 +112,12 @@ class SQLiteRepository:
             if self._conn is None:
                 conn.close()
 
-    def get_chunks_for_strategy(self, document_id: str, strategy_name: str) -> list[dict[str, Any]]:
+    def get_chunks_for_strategy(
+        self,
+        document_id: str,
+        strategy_name: str,
+        embedding_model: str = "feature_hashing",
+    ) -> list[dict[str, Any]]:
         conn = self._get_conn()
         try:
             cur = conn.execute(
@@ -119,9 +125,10 @@ class SQLiteRepository:
                 SELECT c.* FROM chunks c
                 JOIN chunk_collections cc ON c.collection_id = cc.id
                 WHERE cc.document_id = ? AND cc.strategy_name = ?
+                  AND (cc.embedding_model = ? OR (cc.embedding_model IS NULL AND ? = 'feature_hashing'))
                 ORDER BY c.chunk_index ASC
                 """,
-                (document_id, strategy_name),
+                (document_id, strategy_name, embedding_model, embedding_model),
             )
             return [dict(row) for row in cur.fetchall()]
         finally:
@@ -198,15 +205,16 @@ class SQLiteRepository:
         document_id: str,
         query_set_id: str,
         strategy_results: list[dict[str, Any]],
+        embedding_model: str = "feature_hashing",
     ) -> None:
         conn = self._get_conn()
         try:
             conn.execute(
                 """
-                INSERT INTO benchmark_runs (id, document_id, query_set_id, status)
-                VALUES (?, ?, ?, 'completed')
+                INSERT INTO benchmark_runs (id, document_id, query_set_id, embedding_model, status)
+                VALUES (?, ?, ?, ?, 'completed')
                 """,
-                (run_id, document_id, query_set_id),
+                (run_id, document_id, query_set_id, embedding_model),
             )
             insert_results = [
                 (

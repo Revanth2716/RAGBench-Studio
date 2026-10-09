@@ -5,16 +5,19 @@ import {
   Trophy,
   History,
   PlusCircle,
-  Cpu,
   Database,
-  CheckCircle2,
+  Sparkles,
+  Zap,
 } from 'lucide-react'
-import type { HealthInfo } from '../types'
+import type { HealthInfo, ModelInfo } from '../types'
 
 interface NavbarProps {
   activeTab: 'visualizer' | 'playground' | 'leaderboard' | 'history'
   setActiveTab: (tab: 'visualizer' | 'playground' | 'leaderboard' | 'history') => void
   health: HealthInfo | null
+  embeddingModel: string
+  setEmbeddingModel: (model: string) => void
+  models: ModelInfo[]
   onOpenDocModal: () => void
 }
 
@@ -22,8 +25,13 @@ export const Navbar: React.FC<NavbarProps> = ({
   activeTab,
   setActiveTab,
   health,
+  embeddingModel,
+  setEmbeddingModel,
+  models,
   onOpenDocModal,
 }) => {
+  const isSemantic = embeddingModel === 'fastembed'
+
   return (
     <header className="border-b border-slate-800 bg-slate-900/90 backdrop-blur sticky top-0 z-40">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -96,28 +104,54 @@ export const Navbar: React.FC<NavbarProps> = ({
             </button>
           </nav>
 
-          {/* System Status Badges & Action */}
+          {/* Embedding Model Selector & Actions */}
           <div className="flex items-center space-x-3">
-            <div className="hidden lg:flex items-center space-x-2 text-xs">
-              <div className="flex items-center space-x-1 px-2.5 py-1 rounded-md bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
+            {/* Global Embedding Model Switcher */}
+            <div className="flex items-center space-x-2 bg-slate-950/80 px-2.5 py-1.5 rounded-xl border border-slate-800">
+              {isSemantic ? (
+                <Sparkles className="w-4 h-4 text-purple-400 animate-pulse shrink-0" />
+              ) : (
+                <Zap className="w-4 h-4 text-amber-400 shrink-0" />
+              )}
+              <label htmlFor="nav-embedding-model-select" className="sr-only">Embedding Engine</label>
+              <select
+                id="nav-embedding-model-select"
+                aria-label="Embedding Engine Selector"
+                value={embeddingModel}
+                onChange={(e) => setEmbeddingModel(e.target.value)}
+                className="bg-transparent text-xs font-semibold text-slate-200 focus:outline-none cursor-pointer"
+              >
+                {models.length > 0 ? (
+                  models.map((m) => (
+                    <option key={m.id} value={m.id} className="bg-slate-900 text-slate-200">
+                      {m.name} ({m.dimension}d {m.is_semantic ? 'Semantic' : 'Baseline'})
+                    </option>
+                  ))
+                ) : (
+                  <>
+                    <option value="feature_hashing" className="bg-slate-900 text-slate-200">
+                      Feature Hashing (256d Baseline)
+                    </option>
+                    <option value="fastembed" className="bg-slate-900 text-purple-300">
+                      FastEmbed BGE-Small (384d Semantic)
+                    </option>
+                  </>
+                )}
+              </select>
+            </div>
+
+            <div className="hidden xl:flex items-center space-x-1.5 text-xs">
+              <div className="flex items-center space-x-1 px-2 py-1 rounded-md bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
                 <Database className="w-3.5 h-3.5" />
                 <span>SQLite WAL</span>
-              </div>
-              <div className="flex items-center space-x-1 px-2.5 py-1 rounded-md bg-cyan-500/10 text-cyan-400 border border-cyan-500/20">
-                <Cpu className="w-3.5 h-3.5" />
-                <span>Local Offline</span>
-              </div>
-              <div className="flex items-center space-x-1 px-2.5 py-1 rounded-md bg-purple-500/10 text-purple-400 border border-purple-500/20">
-                <CheckCircle2 className="w-3.5 h-3.5" />
-                <span>₹0 Cost</span>
               </div>
             </div>
 
             <button
               onClick={onOpenDocModal}
-              className="flex items-center space-x-1.5 px-3 py-1.5 rounded-lg text-sm font-medium bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 transition"
+              className="flex items-center space-x-1.5 px-3 py-1.5 rounded-lg text-sm font-medium bg-indigo-600 hover:bg-indigo-500 text-white shadow-md shadow-indigo-600/20 transition"
             >
-              <PlusCircle className="w-4 h-4 text-indigo-400" />
+              <PlusCircle className="w-4 h-4" />
               <span>New Doc</span>
             </button>
           </div>

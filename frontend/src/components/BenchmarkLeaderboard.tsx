@@ -7,20 +7,26 @@ import {
   ChevronDown,
   ChevronUp,
   Award,
+  Download,
+  FileJson,
+  Sparkles,
+  Zap,
 } from 'lucide-react'
 import type { DocumentDetail, BenchmarkRunResponse } from '../types'
-import { runBenchmark } from '../api'
+import { runBenchmark, getBenchmarkExportUrl } from '../api'
 
 interface BenchmarkLeaderboardProps {
   document: DocumentDetail | null
   latestRun: BenchmarkRunResponse | null
   setLatestRun: (run: BenchmarkRunResponse) => void
+  embeddingModel?: string
 }
 
 export const BenchmarkLeaderboard: React.FC<BenchmarkLeaderboardProps> = ({
   document,
   latestRun,
   setLatestRun,
+  embeddingModel = 'feature_hashing',
 }) => {
   const [loading, setLoading] = useState<boolean>(false)
   const [selectedStrategyDetail, setSelectedStrategyDetail] = useState<string>('markdown')
@@ -34,6 +40,7 @@ export const BenchmarkLeaderboard: React.FC<BenchmarkLeaderboardProps> = ({
         document_id: document.id,
         query_set_id: document.query_sets[0].id,
         top_k: 3,
+        embedding_model: embeddingModel,
       })
       setLatestRun(res)
       // Pick top strategy by MRR
@@ -51,6 +58,8 @@ export const BenchmarkLeaderboard: React.FC<BenchmarkLeaderboardProps> = ({
   const querySet = document?.query_sets?.[0]
   const strategies = latestRun?.strategies ? [...latestRun.strategies].sort((a, b) => b.mrr - a.mrr) : []
   const winningStrategy = strategies[0]
+  const runModel = latestRun?.embedding_model || embeddingModel
+  const isSemantic = runModel === 'fastembed'
 
   const activeStrategyData = strategies.find(
     (s) => s.strategy_name === selectedStrategyDetail
@@ -70,23 +79,59 @@ export const BenchmarkLeaderboard: React.FC<BenchmarkLeaderboardProps> = ({
                 Information Retrieval (IR) Benchmarking Suite
               </h2>
             </div>
-            <p className="text-xs text-slate-400 mt-1">
-              Deterministic evaluation against {querySet?.queries?.length || 8} golden queries using MRR, Hit Rate@3, NDCG@3, and Latency.
+            <p className="text-xs text-slate-400 mt-1 flex items-center space-x-2">
+              <span>
+                Deterministic evaluation against {querySet?.queries?.length || 8} golden queries using MRR, Hit Rate@3, NDCG@3, and Latency.
+              </span>
+              <span className="text-slate-600">•</span>
+              <span className="flex items-center space-x-1 text-slate-300 font-mono">
+                {isSemantic ? (
+                  <Sparkles className="w-3 h-3 text-purple-400" />
+                ) : (
+                  <Zap className="w-3 h-3 text-amber-400" />
+                )}
+                <span>Engine: {isSemantic ? 'FastEmbed BGE-Small (384d)' : 'Feature Hashing (256d)'}</span>
+              </span>
             </p>
           </div>
 
-          <button
-            onClick={handleRunBenchmark}
-            disabled={loading || !querySet}
-            className="flex items-center space-x-2 px-6 py-3 rounded-xl text-sm font-semibold bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-500 hover:to-purple-500 text-white shadow-lg shadow-indigo-600/20 transition disabled:opacity-50"
-          >
-            {loading ? (
-              <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-            ) : (
-              <Play className="w-4 h-4 fill-current" />
+          <div className="flex items-center space-x-3 w-full md:w-auto justify-end">
+            {latestRun && (
+              <div className="flex items-center space-x-2">
+                <a
+                  href={getBenchmarkExportUrl(latestRun.run_id, 'csv')}
+                  download
+                  className="flex items-center space-x-1.5 px-3.5 py-2.5 rounded-xl text-xs font-semibold bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 transition shadow-sm"
+                  title="Export results as CSV spreadsheet"
+                >
+                  <Download className="w-3.5 h-3.5 text-emerald-400" />
+                  <span>Export CSV</span>
+                </a>
+                <a
+                  href={getBenchmarkExportUrl(latestRun.run_id, 'json')}
+                  download
+                  className="flex items-center space-x-1.5 px-3.5 py-2.5 rounded-xl text-xs font-semibold bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 transition shadow-sm"
+                  title="Export results as structured JSON"
+                >
+                  <FileJson className="w-3.5 h-3.5 text-indigo-400" />
+                  <span>Export JSON</span>
+                </a>
+              </div>
             )}
-            <span>{loading ? 'Evaluating...' : `Run ${querySet?.queries?.length || 8}-Query Benchmark`}</span>
-          </button>
+
+            <button
+              onClick={handleRunBenchmark}
+              disabled={loading || !querySet}
+              className="flex items-center space-x-2 px-6 py-3 rounded-xl text-sm font-semibold bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-500 hover:to-purple-500 text-white shadow-lg shadow-indigo-600/20 transition disabled:opacity-50"
+            >
+              {loading ? (
+                <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+              ) : (
+                <Play className="w-4 h-4 fill-current" />
+              )}
+              <span>{loading ? 'Evaluating...' : `Run ${querySet?.queries?.length || 8}-Query Benchmark`}</span>
+            </button>
+          </div>
         </div>
       </div>
 
@@ -104,7 +149,7 @@ export const BenchmarkLeaderboard: React.FC<BenchmarkLeaderboardProps> = ({
                     Highest Ranking Strategy
                   </span>
                   <span className="text-xs font-mono text-slate-400">
-                    (Top Score on Corpus)
+                    (Top Score on Corpus via {isSemantic ? 'FastEmbed BGE-Small' : 'Feature Hashing'})
                   </span>
                 </div>
                 <h3 className="text-lg font-bold text-white capitalize">
@@ -143,94 +188,96 @@ export const BenchmarkLeaderboard: React.FC<BenchmarkLeaderboardProps> = ({
         </div>
       )}
 
-      {/* Comparative Leaderboard Table */}
-      {strategies.length > 0 ? (
-        <div className="bg-slate-900/60 border border-slate-800 rounded-2xl overflow-hidden">
+      {/* Strategies Comparison Leaderboard Table */}
+      {strategies.length > 0 && (
+        <div className="bg-slate-900/60 border border-slate-800 rounded-2xl overflow-hidden shadow-xl">
           <div className="p-4 border-b border-slate-800 flex items-center justify-between">
-            <h3 className="text-sm font-bold text-white flex items-center space-x-2">
-              <Trophy className="w-4 h-4 text-amber-400" />
-              <span>Comparative Benchmark Leaderboard</span>
-            </h3>
+            <h3 className="text-sm font-bold text-white">Comparative Strategy Scorecard</h3>
             <span className="text-xs text-slate-400 font-mono">
-              Evaluated on {querySet?.queries?.length || 8} queries
+              Evaluated on {document?.title} • {runModel}
             </span>
           </div>
 
           <div className="overflow-x-auto">
-            <table className="w-full text-left text-xs">
-              <thead className="bg-slate-950/80 text-slate-400 uppercase font-mono text-[10px] border-b border-slate-800">
-                <tr>
-                  <th className="py-3 px-4">Rank</th>
-                  <th className="py-3 px-4">Strategy</th>
-                  <th className="py-3 px-4">MRR (Mean Reciprocal Rank)</th>
-                  <th className="py-3 px-4">Hit Rate @ 3</th>
-                  <th className="py-3 px-4">NDCG @ 3</th>
+            <table className="w-full text-left border-collapse">
+              <thead>
+                <tr className="border-b border-slate-800 bg-slate-950/40 text-[11px] font-mono text-slate-400 uppercase tracking-wider">
+                  <th className="py-3 px-4">Rank & Strategy</th>
+                  <th className="py-3 px-4">MRR</th>
+                  <th className="py-3 px-4">Hit Rate@3</th>
+                  <th className="py-3 px-4">NDCG@3</th>
                   <th className="py-3 px-4">Precision / Recall</th>
                   <th className="py-3 px-4">Avg Latency</th>
                   <th className="py-3 px-4">Chunks</th>
                   <th className="py-3 px-4">Redundancy</th>
-                  <th className="py-3 px-4 text-right">Details</th>
+                  <th className="py-3 px-4 text-right">Drilldown</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-slate-800/60 font-sans">
-                {strategies.map((strat, index) => {
-                  const isTop = index === 0
+              <tbody className="divide-y divide-slate-800/60 text-xs font-mono">
+                {strategies.map((strat, idx) => {
+                  const isWinner = idx === 0
+                  const isSelected = selectedStrategyDetail === strat.strategy_name
+
                   return (
                     <tr
                       key={strat.strategy_name}
-                      className={`hover:bg-slate-800/30 transition ${
-                        selectedStrategyDetail === strat.strategy_name ? 'bg-slate-800/50' : ''
+                      onClick={() => setSelectedStrategyDetail(strat.strategy_name)}
+                      className={`hover:bg-slate-800/40 cursor-pointer transition ${
+                        isSelected ? 'bg-indigo-950/20' : ''
                       }`}
                     >
-                      <td className="py-3.5 px-4 font-mono font-bold text-slate-300">
-                        {isTop ? (
-                          <span className="px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-300 border border-amber-500/30">
-                            #1
-                          </span>
-                        ) : (
-                          `#${index + 1}`
-                        )}
+                      <td className="py-3.5 px-4 font-sans font-semibold text-white flex items-center space-x-2">
+                        <span
+                          className={`w-5 h-5 rounded-md flex items-center justify-center text-[10px] font-bold ${
+                            isWinner
+                              ? 'bg-amber-500/20 text-amber-400 border border-amber-500/30'
+                              : 'bg-slate-800 text-slate-400'
+                          }`}
+                        >
+                          #{idx + 1}
+                        </span>
+                        <span className="capitalize">{strat.strategy_name.replace('_', ' ')}</span>
                       </td>
-                      <td className="py-3.5 px-4 font-semibold text-white capitalize">
-                        {strat.strategy_name.replace('_', ' ')}
+
+                      <td className="py-3.5 px-4 font-bold text-emerald-400">
+                        {strat.mrr.toFixed(4)}
                       </td>
-                      <td className="py-3.5 px-4 font-mono">
-                        <div className="flex items-center space-x-2">
-                          <span className="font-bold text-slate-200">{strat.mrr.toFixed(4)}</span>
-                          <div className="w-16 h-1.5 rounded-full bg-slate-800 overflow-hidden">
-                            <div
-                              className="h-full bg-indigo-500 rounded-full"
-                              style={{ width: `${Math.round(strat.mrr * 100)}%` }}
-                            />
-                          </div>
-                        </div>
-                      </td>
-                      <td className="py-3.5 px-4 font-mono font-bold text-emerald-400">
+
+                      <td className="py-3.5 px-4 text-slate-300">
                         {(strat.hit_rate * 100).toFixed(0)}%
                       </td>
-                      <td className="py-3.5 px-4 font-mono text-slate-300">
+
+                      <td className="py-3.5 px-4 text-indigo-400">
                         {strat.ndcg.toFixed(4)}
                       </td>
-                      <td className="py-3.5 px-4 font-mono text-slate-400">
+
+                      <td className="py-3.5 px-4 text-slate-400">
                         P: {strat.precision_at_k.toFixed(2)} | R: {strat.recall_at_k.toFixed(2)}
                       </td>
-                      <td className="py-3.5 px-4 font-mono text-cyan-400">
+
+                      <td className="py-3.5 px-4 text-cyan-400">
                         {strat.avg_latency_ms} ms
                       </td>
-                      <td className="py-3.5 px-4 font-mono text-slate-300">
+
+                      <td className="py-3.5 px-4 text-slate-400">
                         {strat.total_chunks}
                       </td>
-                      <td className="py-3.5 px-4 font-mono">
-                        <span
-                          className={strat.redundancy_ratio > 0.3 ? 'text-amber-400' : 'text-slate-400'}
-                        >
-                          {(strat.redundancy_ratio * 100).toFixed(0)}%
-                        </span>
+
+                      <td className="py-3.5 px-4 text-slate-400">
+                        {(strat.redundancy_ratio * 100).toFixed(0)}%
                       </td>
+
                       <td className="py-3.5 px-4 text-right">
                         <button
-                          onClick={() => setSelectedStrategyDetail(strat.strategy_name)}
-                          className="px-2.5 py-1 rounded text-[11px] font-medium bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 transition"
+                          onClick={(e) => {
+                            e.stopPropagation()
+                            setSelectedStrategyDetail(strat.strategy_name)
+                          }}
+                          className={`px-2.5 py-1 rounded-md text-[11px] font-sans font-medium transition ${
+                            isSelected
+                              ? 'bg-indigo-600 text-white'
+                              : 'bg-slate-800 text-slate-300 hover:bg-slate-700'
+                          }`}
                         >
                           Inspect Queries
                         </button>
@@ -242,44 +289,37 @@ export const BenchmarkLeaderboard: React.FC<BenchmarkLeaderboardProps> = ({
             </table>
           </div>
         </div>
-      ) : (
-        <div className="bg-slate-900/40 border border-slate-800/60 rounded-2xl p-12 text-center text-slate-500">
-          <Trophy className="w-10 h-10 mx-auto mb-3 opacity-30 text-amber-400" />
-          <p className="text-sm font-medium text-slate-400">No benchmark run executed yet.</p>
-          <p className="text-xs text-slate-500 mt-1">
-            Click "Run 8-Query Benchmark" above to evaluate all 4 strategies simultaneously.
-          </p>
-        </div>
       )}
 
-      {/* Query-by-Query Drill Down */}
+      {/* Per-Query Drilldown Section */}
       {activeStrategyData && (
-        <div className="bg-slate-900/60 border border-slate-800 rounded-2xl p-6">
-          <div className="flex items-center justify-between pb-4 border-b border-slate-800 mb-4">
+        <div className="bg-slate-900/60 border border-slate-800 rounded-2xl p-6 space-y-4">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-slate-800 pb-3">
             <div>
-              <h3 className="text-sm font-bold text-white capitalize flex items-center space-x-2">
-                <span>Per-Query Audit: {activeStrategyData.strategy_name.replace('_', ' ')} Strategy</span>
+              <h3 className="text-base font-bold text-white capitalize">
+                Per-Query Audit: {activeStrategyData.strategy_name.replace('_', ' ')} Strategy
               </h3>
-              <p className="text-xs text-slate-400 mt-0.5">
+              <p className="text-xs text-slate-400">
                 Inspect rank position, reciprocal rank score, and target chunk hit status for each query.
               </p>
             </div>
-            <span className="text-xs font-mono text-indigo-400 bg-indigo-500/10 px-2.5 py-1 rounded-lg border border-indigo-500/20">
+            <span className="text-xs font-mono text-indigo-400 bg-indigo-950/60 border border-indigo-500/30 px-3 py-1 rounded-lg">
               MRR: {activeStrategyData.mrr.toFixed(4)}
             </span>
           </div>
 
-          <div className="space-y-2.5">
+          <div className="space-y-2">
             {activeStrategyData.per_query_details.map((qd) => {
               const isExpanded = expandedQueryId === qd.query_id
+
               return (
                 <div
                   key={qd.query_id}
-                  className="bg-slate-950/70 border border-slate-800/80 rounded-xl overflow-hidden"
+                  className="bg-slate-950 rounded-xl border border-slate-800/80 overflow-hidden"
                 >
-                  <div
+                  <button
                     onClick={() => setExpandedQueryId(isExpanded ? null : qd.query_id)}
-                    className="p-3.5 flex items-center justify-between cursor-pointer hover:bg-slate-800/30 transition"
+                    className="w-full p-3.5 flex items-center justify-between hover:bg-slate-900/40 transition text-left"
                   >
                     <div className="flex items-center space-x-3 flex-1 pr-4">
                       {qd.hit ? (
@@ -292,30 +332,38 @@ export const BenchmarkLeaderboard: React.FC<BenchmarkLeaderboardProps> = ({
                       </span>
                     </div>
 
-                    <div className="flex items-center space-x-4 shrink-0 font-mono text-xs">
+                    <div className="flex items-center space-x-4 font-mono text-xs shrink-0">
                       <span className="text-slate-400">
-                        RR: <span className="font-bold text-white">{qd.reciprocal_rank.toFixed(2)}</span>
+                        RR: <strong className="text-emerald-400">{qd.reciprocal_rank.toFixed(2)}</strong>
                       </span>
                       <span className="text-slate-400">
-                        NDCG: <span className="text-indigo-400">{qd.ndcg.toFixed(2)}</span>
+                        NDCG: <strong className="text-indigo-400">{qd.ndcg.toFixed(2)}</strong>
                       </span>
-                      <span className="text-cyan-400 text-[11px]">{qd.latency_ms}ms</span>
+                      <span className="text-slate-500">
+                        {qd.latency_ms}ms
+                      </span>
                       {isExpanded ? (
-                        <ChevronUp className="w-4 h-4 text-slate-500" />
+                        <ChevronUp className="w-4 h-4 text-slate-400" />
                       ) : (
-                        <ChevronDown className="w-4 h-4 text-slate-500" />
+                        <ChevronDown className="w-4 h-4 text-slate-400" />
                       )}
                     </div>
-                  </div>
+                  </button>
 
+                  {/* Expanded Detail */}
                   {isExpanded && (
-                    <div className="px-4 pb-4 pt-1 bg-slate-900/40 border-t border-slate-900 text-xs">
-                      <div className="text-[11px] font-mono text-slate-400 mb-1">
-                        Top Matched Context Snippet:
+                    <div className="p-4 bg-slate-900/30 border-t border-slate-800 text-xs space-y-2 font-mono">
+                      <div className="flex items-center space-x-4 text-slate-400">
+                        <span>Retrieved Ranks with Match: {qd.retrieved_ranks.length ? qd.retrieved_ranks.join(', ') : 'None'}</span>
+                        <span>•</span>
+                        <span>Precision@3: {qd.precision_at_k.toFixed(2)}</span>
+                        <span>•</span>
+                        <span>Recall@3: {qd.recall_at_k.toFixed(2)}</span>
                       </div>
-                      <p className="p-2.5 rounded-lg bg-slate-950 border border-slate-800/60 font-sans text-slate-300 leading-relaxed">
-                        {qd.top_match_preview || 'No chunk text preview available'}
-                      </p>
+                      <div className="mt-2 p-2.5 rounded-lg bg-slate-950 border border-slate-800/80 text-slate-300 font-sans">
+                        <span className="text-[10px] uppercase font-mono text-slate-500 block mb-1">Top Match Preview:</span>
+                        {qd.top_match_preview || 'No chunk preview available.'}
+                      </div>
                     </div>
                   )}
                 </div>

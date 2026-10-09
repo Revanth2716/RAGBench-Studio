@@ -6,6 +6,16 @@ export interface HealthInfo {
   db_status: string
 }
 
+export interface ModelInfo {
+  id: string
+  name: string
+  dimension: number
+  is_semantic: boolean
+  description: string
+  is_loaded: boolean
+  download_required: boolean
+}
+
 export interface DocumentListItem {
   id: string
   title: string
@@ -79,6 +89,7 @@ export interface QuerySearchResponse {
   document_id: string
   query: string
   top_k: number
+  embedding_model?: string
   strategies: StrategySearchResult[]
 }
 
@@ -113,6 +124,7 @@ export interface BenchmarkRunResponse {
   document_id: string
   query_set_id: string
   top_k: number
+  embedding_model?: string
   strategies: StrategyBenchmarkResult[]
 }
 
@@ -122,6 +134,7 @@ export interface BenchmarkRunListItem {
   document_title: string
   query_set_id: string
   query_set_name: string
+  embedding_model?: string
   status: string
   created_at: string
   strategy_summaries: {

@@ -1,14 +1,15 @@
 import time
 from typing import Any
 import numpy as np
-from app.engine.embeddings import DeterministicVectorEmbedder, deserialize_vector
+from app.engine.embeddings import BaseVectorEmbedder, DeterministicVectorEmbedder, deserialize_vector
 
 class VectorRetriever:
     """
     In-memory cosine similarity retriever over chunk vector representations.
-    Executes top-K vector search with sub-millisecond latency.
+    Executes top-K vector search using the specified embedder (deterministic or semantic).
+    Guarantees consistent vector dimensions and handles on-the-fly embedding when required.
     """
-    def __init__(self, embedder: DeterministicVectorEmbedder | None = None):
+    def __init__(self, embedder: BaseVectorEmbedder | None = None):
         self.embedder = embedder or DeterministicVectorEmbedder()
 
     def search(
@@ -18,7 +19,7 @@ class VectorRetriever:
         top_k: int = 3,
     ) -> dict[str, Any]:
         """
-        Retrieves top_k chunks for query using precomputed chunk embeddings or on-the-fly embeddings.
+        Retrieves top_k chunks for query using chunk embeddings matching the embedder's dimension.
         Returns retrieved chunks sorted by cosine similarity with measured latency.
         """
         start_time = time.perf_counter()
@@ -28,19 +29,23 @@ class VectorRetriever:
                 "query": query,
                 "top_k": top_k,
                 "latency_ms": 0.0,
+                "embedding_model": self.embedder.model_id,
                 "results": [],
             }
 
-        # Embed query
+        # Embed query using current embedder
         q_vec = self.embedder.embed_text(query)
 
-        # Assemble chunk matrix
+        # Assemble chunk matrix ensuring exact dimensional match
         chunk_vectors: list[np.ndarray] = []
         for c in chunks:
             blob = c.get("vector_blob")
+            vec = None
             if blob:
-                vec = deserialize_vector(blob, dimension=self.embedder.dimension)
-            else:
+                candidate = deserialize_vector(blob, dimension=self.embedder.dimension)
+                if len(candidate) == self.embedder.dimension and not np.all(candidate == 0):
+                    vec = candidate
+            if vec is None:
                 vec = self.embedder.embed_text(c["text"])
             chunk_vectors.append(vec)
 
@@ -75,5 +80,6 @@ class VectorRetriever:
             "query": query,
             "top_k": top_k,
             "latency_ms": latency_ms,
+            "embedding_model": self.embedder.model_id,
             "results": results,
         }

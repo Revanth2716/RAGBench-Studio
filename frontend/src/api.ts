@@ -1,5 +1,6 @@
 import type {
   HealthInfo,
+  ModelInfo,
   DocumentListItem,
   DocumentDetail,
   ChunkPreviewResult,
@@ -23,6 +24,18 @@ export async function getHealth(): Promise<HealthInfo> {
   return handleResponse<HealthInfo>(res)
 }
 
+export async function getModels(): Promise<ModelInfo[]> {
+  const res = await fetch(`${BASE_URL}/models`)
+  return handleResponse<ModelInfo[]>(res)
+}
+
+export async function preloadModel(modelId: string): Promise<any> {
+  const res = await fetch(`${BASE_URL}/models/load?model_id=${encodeURIComponent(modelId)}`, {
+    method: 'POST',
+  })
+  return handleResponse<any>(res)
+}
+
 export async function getDocuments(): Promise<DocumentListItem[]> {
   const res = await fetch(`${BASE_URL}/documents`)
   return handleResponse<DocumentListItem[]>(res)
@@ -42,6 +55,19 @@ export async function createDocument(payload: {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(payload),
+  })
+  return handleResponse<DocumentDetail>(res)
+}
+
+export async function uploadDocument(file: File, title?: string): Promise<DocumentDetail> {
+  const formData = new FormData()
+  formData.append('file', file)
+  if (title && title.trim()) {
+    formData.append('title', title.trim())
+  }
+  const res = await fetch(`${BASE_URL}/documents/upload`, {
+    method: 'POST',
+    body: formData,
   })
   return handleResponse<DocumentDetail>(res)
 }
@@ -71,6 +97,7 @@ export async function searchQueries(payload: {
   document_id: string
   query: string
   top_k?: number
+  embedding_model?: string
   strategies?: string[]
 }): Promise<QuerySearchResponse> {
   const res = await fetch(`${BASE_URL}/search/query`, {
@@ -85,6 +112,7 @@ export async function runBenchmark(payload: {
   document_id: string
   query_set_id: string
   top_k?: number
+  embedding_model?: string
   strategy_params?: Record<string, Record<string, any>>
 }): Promise<BenchmarkRunResponse> {
   const res = await fetch(`${BASE_URL}/benchmarks/run`, {
@@ -103,4 +131,8 @@ export async function getBenchmarkRuns(): Promise<BenchmarkRunListItem[]> {
 export async function getBenchmarkRunDetail(runId: string): Promise<any> {
   const res = await fetch(`${BASE_URL}/benchmarks/runs/${runId}`)
   return handleResponse<any>(res)
+}
+
+export function getBenchmarkExportUrl(runId: string, format: 'csv' | 'json' = 'csv'): string {
+  return `${BASE_URL}/benchmarks/runs/${runId}/export?format=${format}`
 }

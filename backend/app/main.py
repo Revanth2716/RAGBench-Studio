@@ -10,6 +10,7 @@ from app.api.routes_documents import router as documents_router
 from app.api.routes_chunks import router as chunks_router
 from app.api.routes_search import router as search_router
 from app.api.routes_benchmarks import router as benchmarks_router
+from app.api.routes_models import router as models_router
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -58,6 +59,7 @@ app.include_router(documents_router, prefix=settings.API_PREFIX)
 app.include_router(chunks_router, prefix=settings.API_PREFIX)
 app.include_router(search_router, prefix=settings.API_PREFIX)
 app.include_router(benchmarks_router, prefix=settings.API_PREFIX)
+app.include_router(models_router, prefix=settings.API_PREFIX)
 
 @app.get("/")
 def root():

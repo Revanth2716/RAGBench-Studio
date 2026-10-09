@@ -7,18 +7,21 @@ import { RunHistory } from './components/RunHistory'
 import { DocumentModal } from './components/DocumentModal'
 import type {
   HealthInfo,
+  ModelInfo,
   DocumentListItem,
   DocumentDetail,
   BenchmarkRunResponse,
 } from './types'
-import { getHealth, getDocuments, getDocumentDetail } from './api'
-import { FileText, AlertCircle, RefreshCw } from 'lucide-react'
+import { getHealth, getModels, getDocuments, getDocumentDetail } from './api'
+import { FileText, AlertCircle, RefreshCw, Sparkles, Zap } from 'lucide-react'
 
 export function App() {
   const [activeTab, setActiveTab] = useState<'visualizer' | 'playground' | 'leaderboard' | 'history'>(
     'visualizer'
   )
   const [health, setHealth] = useState<HealthInfo | null>(null)
+  const [models, setModels] = useState<ModelInfo[]>([])
+  const [embeddingModel, setEmbeddingModel] = useState<string>('feature_hashing')
   const [documents, setDocuments] = useState<DocumentListItem[]>([])
   const [selectedDocId, setSelectedDocId] = useState<string>('')
   const [activeDocument, setActiveDocument] = useState<DocumentDetail | null>(null)
@@ -41,8 +44,9 @@ export function App() {
     setLoading(true)
     setError(null)
     try {
-      const [h, docs] = await Promise.all([getHealth(), getDocuments()])
+      const [h, mList, docs] = await Promise.all([getHealth(), getModels(), getDocuments()])
       setHealth(h)
+      setModels(mList)
       setDocuments(docs)
       if (docs.length > 0) {
         const targetId = selectedDocId && docs.some((d) => d.id === selectedDocId) ? selectedDocId : docs[0].id
@@ -79,8 +83,12 @@ export function App() {
       document_id: runDetail.document_id,
       query_set_id: runDetail.query_set_id,
       top_k: 3,
+      embedding_model: runDetail.embedding_model,
       strategies: runDetail.strategies,
     })
+    if (runDetail.embedding_model) {
+      setEmbeddingModel(runDetail.embedding_model)
+    }
     setActiveTab('leaderboard')
   }
 
@@ -93,12 +101,17 @@ export function App() {
     )
   }
 
+  const activeModelMeta = models.find((m) => m.id === embeddingModel)
+
   return (
     <div className="min-h-screen bg-slate-950 flex flex-col selection:bg-indigo-500/30 selection:text-indigo-200">
       <Navbar
         activeTab={activeTab}
         setActiveTab={setActiveTab}
         health={health}
+        embeddingModel={embeddingModel}
+        setEmbeddingModel={setEmbeddingModel}
+        models={models}
         onOpenDocModal={() => setIsDocModalOpen(true)}
       />
 
@@ -110,9 +123,9 @@ export function App() {
           </div>
         )}
 
-        {/* Global Document Selector Bar */}
+        {/* Global Document & Engine Selector Bar */}
         {documents.length > 0 && (
-          <div className="flex items-center justify-between bg-slate-900/40 border border-slate-800/80 px-4 py-3 rounded-xl">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between bg-slate-900/40 border border-slate-800/80 px-4 py-3 rounded-xl gap-3">
             <div className="flex items-center space-x-3">
               <FileText className="w-4 h-4 text-slate-400" />
               <label htmlFor="active-corpus-select" className="text-xs font-semibold text-slate-300 uppercase tracking-wider">
@@ -134,9 +147,25 @@ export function App() {
               </select>
             </div>
 
-            <span className="text-xs text-slate-500 hidden sm:inline font-mono">
-              Deterministic Retrieval • Local Embeddings
-            </span>
+            <div className="flex items-center space-x-2 text-xs font-mono">
+              <span className="text-slate-500">Active Engine:</span>
+              <span
+                className={`px-2.5 py-1 rounded-md border flex items-center space-x-1.5 ${
+                  embeddingModel === 'fastembed'
+                    ? 'bg-purple-950/60 text-purple-300 border-purple-500/40'
+                    : 'bg-slate-950 text-amber-300 border-amber-500/30'
+                }`}
+              >
+                {embeddingModel === 'fastembed' ? (
+                  <Sparkles className="w-3.5 h-3.5 text-purple-400" />
+                ) : (
+                  <Zap className="w-3.5 h-3.5 text-amber-400" />
+                )}
+                <span>
+                  {activeModelMeta ? activeModelMeta.name : embeddingModel} ({activeModelMeta?.dimension || 256}d)
+                </span>
+              </span>
+            </div>
           </div>
         )}
 
@@ -149,7 +178,11 @@ export function App() {
         )}
 
         {activeTab === 'playground' && (
-          <QueryPlayground document={activeDocument} />
+          <QueryPlayground
+            document={activeDocument}
+            embeddingModel={embeddingModel}
+            onSelectEmbeddingModel={setEmbeddingModel}
+          />
         )}
 
         {activeTab === 'leaderboard' && (
@@ -157,6 +190,7 @@ export function App() {
             document={activeDocument}
             latestRun={latestRun}
             setLatestRun={setLatestRun}
+            embeddingModel={embeddingModel}
           />
         )}
 
