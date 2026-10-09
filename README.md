@@ -1,22 +1,68 @@
 # RAGBench Studio
 
 > **Local-First RAG Chunking Strategy & Vector Retrieval Diagnostic Platform**  
-> Empirically evaluate and compare 4 document chunking strategies against golden query suites using canonical Information Retrieval (IR) metrics (MRR, Hit Rate@K, NDCG@K). 100% offline, ₹0 cloud cost, and optimized for 8 GB RAM machines.
+> Empirically evaluate and compare 4 document chunking strategies against golden query suites using canonical Information Retrieval (IR) metrics (MRR, Hit Rate@K, NDCG@K). 100% offline, ₹0 cloud cost, and optimized for consumer hardware (8 GB RAM / GTX 1650).
+
+[![Python 3.12](https://img.shields.io/badge/Python-3.12-3776AB?logo=python&logoColor=white)](https://www.python.org/)
+[![FastAPI](https://img.shields.io/badge/FastAPI-0.111-009688?logo=fastapi&logoColor=white)](https://fastapi.tiangolo.com/)
+[![React 19](https://img.shields.io/badge/React-19.2-61DAFB?logo=react&logoColor=black)](https://react.dev/)
+[![TypeScript](https://img.shields.io/badge/TypeScript-5.6-3178C6?logo=typescript&logoColor=white)](https://www.typescriptlang.org/)
+[![Tailwind CSS](https://img.shields.io/badge/Tailwind_CSS-v4-06B6D4?logo=tailwindcss&logoColor=white)](https://tailwindcss.com/)
+[![SQLite WAL](https://img.shields.io/badge/SQLite-WAL_Mode-003B57?logo=sqlite&logoColor=white)](https://www.sqlite.org/)
+[![ONNX Runtime](https://img.shields.io/badge/ONNX_Runtime-CPU-005CED?logo=onnx&logoColor=white)](https://onnxruntime.ai/)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
 ---
 
 ## 1. Problem Statement
 
-In production Generative AI, **80% of RAG failures stem from retrieval degradation**, not LLM synthesis errors. When knowledge bases are chunked naively:
-1. **Fixed-window slicing** blindly severs sentences and paragraphs mid-thought, destroying context.
+In production Generative AI, **80% of RAG failures stem from retrieval degradation**, not LLM synthesis errors. When enterprise knowledge bases are chunked naively:
+1. **Fixed-window slicing** blindly severs sentences and paragraphs mid-thought, destroying syntactic and semantic context.
 2. **Oversized chunks** introduce irrelevant noise, diluting cosine similarity vectors.
 3. **Undersized chunks** strip away critical evidence, leading to retrieval misses.
 
-Most AI developers guess their chunking hyperparameters (`chunk_size=512, overlap=50`) without empirical measurement. **RAGBench Studio** replaces guesswork with an interactive diagnostic workbench and automated Information Retrieval (IR) benchmarking.
+Most AI developers guess their chunking hyperparameters (`chunk_size=512, overlap=50`) without empirical measurement. **RAGBench Studio** replaces guesswork with an interactive diagnostic workbench, side-by-side vector search, dual embedding comparisons, and automated Information Retrieval (IR) benchmarking.
 
 ---
 
-## 2. Architecture & Data Flow
+## 2. Visual Walkthrough & Screenshots
+
+### Dashboard Overview & Chunk Visualizer
+Interactive exploration of chunk boundaries, sliding character windows, and estimated token counts across 4 chunking strategies.
+![RAGBench Studio Dashboard](docs/screenshots/dashboard.png)
+
+### Side-by-Side Query Playground
+Search across all 4 chunking strategies simultaneously to inspect retrieved passage cards, cosine scores, and context boundaries in real-time.
+![Query Playground](docs/screenshots/query-playground.png)
+
+### Side-by-Side Embedding Comparator
+Compare sparse **Feature Hashing (256d)** against dense **FastEmbed BGE-small (384d)** head-to-head on the same query, measuring Jaccard Top-K overlap, latency speedup, and rank divergence.
+![Embedding Comparator](docs/screenshots/embedding-comparator.png)
+
+### Canonical IR Benchmark Leaderboard
+Evaluate all strategies against an 8-query golden evaluation suite using canonical Information Retrieval mathematics (MRR, Hit Rate@3, NDCG@3, Precision, Recall).
+![IR Leaderboard](docs/screenshots/ir-leaderboard.png)
+
+### SQLite Benchmark Run History
+Permanent local run persistence in SQLite (WAL mode) with model badges, one-click run inspection, and structured CSV/JSON exports.
+![Run History](docs/screenshots/run-history.png)
+
+---
+
+## 3. Key Features
+
+- **4 Document Chunking Strategies**: Fixed Window (baseline), Recursive Delimiter (LangChain-style hierarchical), Semantic Boundary (sentence cosine drop transitions), and Markdown Hierarchy (header breadcrumbs & code fence protection).
+- **Dual Vector Representations**:
+  - *Deterministic Feature Hashing (256d)*: Sub-millisecond CPU character n-gram projection via Murmur/MD5 hashing. Zero downloads required; 100% offline out-of-the-box.
+  - *FastEmbed Dense Semantic (384d)*: Small ONNX transformer embeddings (`BAAI/bge-small-en-v1.5`) running locally on CPU.
+- **Side-by-Side Comparator**: Head-to-head dual-model retrieval computing Jaccard Top-K overlap, latency differentials, and cross-model rank alignment matrices.
+- **Canonical IR Metrics Suite**: Mean Reciprocal Rank (MRR), Hit Rate@K, Normalized Discounted Cumulative Gain (NDCG@K), Precision@K, Recall@K, and Token Redundancy Ratio.
+- **Zero-Cloud SQLite Persistence**: Full relational storage in SQLite WAL mode for documents, chunk collections, test query sets, and historical benchmark runs.
+- **Data Import & Export**: Drag-and-drop `.txt` and `.md` document ingestion with format validation; downloadable CSV and JSON benchmark exports.
+
+---
+
+## 4. Architecture & Data Flow
 
 ```text
 [ Document Ingestion /api/v1/documents + File Upload (.md, .txt) ]
@@ -48,37 +94,9 @@ Most AI developers guess their chunking hyperparameters (`chunk_size=512, overla
 - Context boundary inspec     - Diagnostic presets suite- CSV & JSON Export
 ```
 
-### Repository Structure
-
-```text
-ragbench-studio/
-├── backend/
-│   ├── app/
-│   │   ├── api/                 # FastAPI REST endpoints (health, documents, chunks, search, benchmarks, models)
-│   │   ├── config.py            # Central configuration & settings
-│   │   ├── data/                # Seeded technical whitepaper & 8 golden queries
-│   │   ├── db/                  # SQLite schema, WAL connection factory, and repository
-│   │   ├── engine/              # Chunkers (4 strategies), embedders, retriever, and IR metrics
-│   │   ├── main.py              # Application entrypoint & lifespan lifecycle
-│   │   └── schemas.py           # Pydantic v2 data models
-│   ├── tests/                   # 43 automated unit & integration tests
-│   ├── requirements.txt         # Pinned backend dependencies
-│   └── .env.example             # Optional environment variable template
-├── frontend/
-│   ├── src/
-│   │   ├── components/          # ChunkVisualizer, QueryPlayground, EmbeddingComparator, etc.
-│   │   ├── api.ts               # Type-safe API client
-│   │   ├── App.tsx              # Application shell & navigation tabs
-│   │   └── types.ts             # TypeScript interfaces
-│   ├── package.json             # Frontend dependencies (React 19, Vite, Tailwind v4)
-│   └── vite.config.ts           # Development proxy & server config
-├── LICENSE                      # MIT License
-└── README.md
-```
-
 ---
 
-## 3. The 4 Chunking Strategies
+## 5. The 4 Chunking Strategies
 
 | Strategy | Algorithm & Mechanics | Key Strength | Typical Failure Mode |
 | :--- | :--- | :--- | :--- |
@@ -89,7 +107,7 @@ ragbench-studio/
 
 ---
 
-## 4. Canonical Information Retrieval (IR) Metrics
+## 6. Canonical Information Retrieval (IR) Metrics
 
 RAGBench Studio evaluates retrieval accuracy against ground-truth golden query sets using standard Information Retrieval mathematics:
 
@@ -113,11 +131,23 @@ $$\text{Redundancy} = 1 - \frac{|\text{Unique Tokens}|}{\sum |\text{Chunk Tokens
 - **Dynamic Chunk Evaluation**: Because each chunking strategy generates distinct chunk counts and character boundaries (e.g., 7 chunks in Markdown vs. 21 in Semantic), static chunk IDs cannot serve as universal ground truth across all strategies.
 - **Topical Keyword Evidence Matching**: Relevance is evaluated by checking if a retrieved chunk satisfies the required keyword density ($\ge 50\%$) for a golden test query.
 - **Strict Evidence Requirement**: If a test query has no grounded evidence chunk in a given chunking configuration, it strictly scores `0.0` across all metrics. No heuristic fallbacks or fabricated relevance labels are applied.
-- **Scope Limitation**: Benchmark metrics reflect retrieval accuracy against the defined golden test suite. For free-form user queries without ground-truth labels, the Embedding Comparator provides rank alignment and Jaccard overlap diagnostics instead of synthetic precision/recall numbers.
+- **Evaluation Scope**: Benchmark metrics reflect retrieval accuracy against the defined 8-query golden suite. They demonstrate comparative retrieval dynamics under controlled conditions, not universal benchmark superiority across all NLP domains.
 
 ---
 
-## 5. Measured Benchmark Results (Reproducible)
+## 7. Supported Embedding Backends
+
+| Dimension / Mode | Implementation | Initialization / Footprint | When to Use |
+| :--- | :--- | :--- | :--- |
+| **Deterministic Feature Hashing (256d)** | Token n-gram hashing via Murmur/MD5 projection into float32 array. | Instantaneous (0 ms), 0 MB disk, 0.26 ms search latency. | Rapid exploratory chunk debugging, zero-dependency testing, constrained CPU environments. |
+| **FastEmbed BGE-Small (384d)** | `BAAI/bge-small-en-v1.5` transformer model via ONNX Runtime CPU. | One-time 64 MB download on first query; ~5.7 ms warm search latency. | Semantic synonym retrieval, conceptual paraphrase matching, production-grade dense vector evaluation. |
+
+> [!IMPORTANT]
+> **Vector Space Isolation Guarantee**: Feature Hashing vectors (256d) and FastEmbed vectors (384d) occupy fundamentally incompatible geometric coordinate spaces. RAGBench Studio strictly isolates collections by embedding backend in SQLite, preventing invalid cross-model similarity comparisons.
+
+---
+
+## 8. Measured Benchmark Results (Reproducible)
 
 Benchmarked on **Windows 11 (64-bit)**, **AMD Ryzen 5 5600H**, **8 GB System RAM**, **NVIDIA GTX 1650 4 GB GPU**:
 
@@ -144,11 +174,11 @@ semantic               | 0.6667   | 87.5   % | 0.7202   | 0.48  ms | 21
 ```
 
 > [!NOTE]
-> **Key Empirical Discovery**: Markdown Hierarchy chunking achieved the highest MRR (**0.9375**) and **100% Hit Rate** because header breadcrumbs preserve context, allowing the retriever to locate exact answers with fewer total chunks (7 vs 21).
+> **Key Finding**: Markdown Hierarchy chunking achieved the highest MRR (**0.9375**) and **100% Hit Rate** on the technical document because header breadcrumbs preserve context, allowing the retriever to locate exact answers with fewer total chunks (7 vs 21).
 
 ---
 
-## 6. Getting Started (Setup & Installation)
+## 9. Getting Started (Setup & Installation)
 
 ### Prerequisites
 - Windows 10/11, macOS, or Linux.
@@ -157,8 +187,8 @@ semantic               | 0.6667   | 87.5   % | 0.7202   | 0.48  ms | 21
 
 ### Clone the Repository
 ```powershell
-git clone https://github.com/<your-username>/ragbench-studio.git
-cd ragbench-studio
+git clone https://github.com/Revanth2716/RAGBench-Studio.git
+cd RAGBench-Studio
 ```
 
 > [!NOTE]
@@ -187,7 +217,7 @@ npm run build
 
 ---
 
-## 7. Running RAGBench Studio Locally
+## 10. Running RAGBench Studio Locally
 
 Open **two terminal windows**:
 
@@ -207,28 +237,7 @@ npm run dev
 
 ---
 
-## 8. API Reference
-
-| Method | Endpoint | Description |
-| :--- | :--- | :--- |
-| `GET` | `/api/v1/health` | System status, SQLite status, and available chunkers. |
-| `GET` | `/api/v1/models` | List available embedding models and loaded states. |
-| `POST` | `/api/v1/models/load` | Explicitly warm up / preload a model in memory. |
-| `GET` | `/api/v1/documents` | List all ingested documents. |
-| `POST` | `/api/v1/documents` | Ingest new document and optional evaluation queries. |
-| `POST` | `/api/v1/documents/upload` | Multipart file upload (`.md`, `.txt`) with format validation. |
-| `GET` | `/api/v1/documents/{id}` | Document content and attached query suites. |
-| `POST` | `/api/v1/chunks/preview` | Real-time chunk boundary generator with start/end offsets. |
-| `POST` | `/api/v1/search/query` | Side-by-side Top-K vector retrieval across all 4 strategies. |
-| `POST` | `/api/v1/search/compare` | Dual-model retrieval (256d vs 384d), Jaccard overlap, and rank deltas. |
-| `POST` | `/api/v1/benchmarks/run` | Execute multi-strategy IR evaluation and persist run. |
-| `GET` | `/api/v1/benchmarks/runs` | List historical benchmark runs from SQLite. |
-| `GET` | `/api/v1/benchmarks/runs/{id}` | Detailed per-query drill-down and scorecards. |
-| `GET` | `/api/v1/benchmarks/runs/{id}/export` | Export benchmark run as downloadable CSV or JSON. |
-
----
-
-## 9. Testing & Quality Assurance
+## 11. Testing & Quality Assurance
 
 The project includes **43 automated tests** across SQLite repository persistence, the 4 chunkers, IR evaluation formulas, vector retrieval, model warmup, semantic comparison, file upload validation, benchmark export, comparator API, edge-case duplicate discounting, and FastAPI routes:
 
@@ -248,19 +257,19 @@ tests/test_ir_metrics.py (8 tests) ..................... PASSED
 tests/test_models_and_fastembed.py (4 tests) ........... PASSED
 tests/test_repository.py (3 tests) ..................... PASSED
 
-======================== 43 passed in 4.55s ========================
+======================== 43 passed in 2.58s ========================
 ```
 
 Frontend production build check:
 ```powershell
 cd frontend
 npm run build
-# Output: built in 606ms (0 errors, 0 warnings)
+# Output: built in 602ms (0 errors, 0 warnings)
 ```
 
 ---
 
-## 10. Hardware & Zero-Cost Architecture
+## 12. Hardware & Zero-Cost Architecture
 
 - **100% On-Device Processing**: Document chunking, vector embedding, and similarity search run entirely on CPU via NumPy vectorization and FastEmbed ONNX runtime.
 - **₹0 Cloud Cost**: No OpenAI/Anthropic API keys, subscriptions, or external network requests.
@@ -270,20 +279,42 @@ npm run build
   - Feature Hashing Warm Latency: **~0.26 ms** per query.
   - FastEmbed ONNX Warm Latency: **~5.7 ms** per query.
   - Peak Traced Process Memory: **< 1.0 MB RAM** during benchmark execution; completely safe for 8 GB RAM machines.
-- **Vector Space Isolation**: Ensures 256d baseline vectors and 384d semantic vectors reside in strictly separated collections and are never invalidly cross-compared.
 
 ---
 
-## 11. Interview Discussion Talking Points
+## 13. Repository Structure
 
-- **Why naive RAG fails**: How fixed-size chunking severs sentences and why hierarchical/structure-aware chunking increases retrieval recall.
-- **IR Metrics over LLM-as-a-judge**: Why computing deterministic MRR and Hit Rate@K provides an uncheatable regression gate before deploying to production.
-- **Vector Space Math**: How unit L2 normalization transforms cosine similarity into a single matrix dot product $\mathbf{C} \cdot \mathbf{q}$, enabling sub-millisecond retrieval in NumPy without heavy vector database daemons.
-- **SQLite BLOB Storage**: Storing float32 NumPy vector blobs directly in SQLite to achieve local-first, zero-setup vector persistence.
+```text
+RAGBench-Studio/
+├── backend/
+│   ├── app/
+│   │   ├── api/                 # FastAPI REST endpoints (health, documents, chunks, search, benchmarks, models)
+│   │   ├── config.py            # Central configuration & settings
+│   │   ├── data/                # Seeded technical whitepaper & 8 golden queries
+│   │   ├── db/                  # SQLite schema, WAL connection factory, and repository
+│   │   ├── engine/              # Chunkers (4 strategies), embedders, retriever, and IR metrics
+│   │   ├── main.py              # Application entrypoint & lifespan lifecycle
+│   │   └── schemas.py           # Pydantic v2 data models
+│   ├── tests/                   # 43 automated unit & integration tests
+│   ├── requirements.txt         # Pinned backend dependencies
+│   └── .env.example             # Optional environment variable template
+├── frontend/
+│   ├── src/
+│   │   ├── components/          # ChunkVisualizer, QueryPlayground, EmbeddingComparator, etc.
+│   │   ├── api.ts               # Type-safe API client
+│   │   ├── App.tsx              # Application shell & navigation tabs
+│   │   └── types.ts             # TypeScript interfaces
+│   ├── package.json             # Frontend dependencies (React 19, Vite, Tailwind v4)
+│   └── vite.config.ts           # Development proxy & server config
+├── docs/
+│   └── screenshots/             # High-resolution dashboard and feature screenshots
+├── LICENSE                      # MIT License
+└── README.md
+```
 
 ---
 
-## 12. Troubleshooting & FAQ
+## 14. Troubleshooting & FAQ
 
 #### Q: PowerShell blocks script execution when activating `.venv`?
 Run:
